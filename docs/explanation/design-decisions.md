@@ -2668,3 +2668,39 @@ algorithm documents, not journal articles.
 redistributed this way at the scale of a bulk import. The pilot entries carry 109
 SNOMED codes. Also open: a vocabulary check for the code systems that have no adapter.
 WHO ICD-10 and SNOMED builds exist outside `conf/oak_config.yaml`.
+
+## 21. Proposed ontology edits have a separate registry (2026-11-25)
+
+An upstream mapping correction can be supported before an issue is filed.
+Disease mappings and `tracked_issues` express current bindings and ticket
+pointers; neither identifies a proposed external edit with its old and new
+values. Curation history records sessions rather than a request lifecycle.
+
+Store one independently reviewable edit in `ontology_changes/<id>.yaml`,
+using a standalone LinkML schema adapted from ai-gene-review's
+`ProposedOntologyChange`. This keeps proposals out of the asserted biological
+knowledge graph and avoids adding slots to every disease. `affected_records`
+provides links to diseases, groupings and analyses; queries supply the reverse
+links without duplicating status. Origin, outbound-request status and local
+adoption are separate axes. Source snapshots identify what was verified and
+when. Curator confidence is qualitative and never derived from solver scores.
+
+Mapping changes identify both endpoints and their source representation. For
+MONDO the requested edit may replace an xref qualifier; a Boomer subclass
+hypothesis representing that mapping is not the literal ontology patch.
+The first population is the anterior segment dysgenesis ICD-11 qualifier
+correction. The registry supports validation, JSON queries and a reviewable
+Markdown export; KGCL execution and automatic ticket filing are not implemented.
+See the [registry guide](../../ontology_changes/README.md).
+
+Coordinated mapping moves are recorded in `ontology_changes/change_sets/`,
+referencing the atomic removal and creation IDs. Membership is stored once;
+reverse links are derived. Each change-set YAML materializes the complete
+`before` and `after` mapping assertions, with IDs and labels, so a GitHub reader
+can understand the move in one file. The atomic proposals remain authoritative:
+a deterministic refresh command populates the view and validation rejects any
+disagreement, including labels. Status and evidence are not duplicated.
+A `MAPPING_MOVE` changes only the subject, preserving the target, source representation and
+qualifier. The two atomic lifecycles remain authoritative, so partial upstream
+application is visible instead of being hidden by an aggregate status. These
+sets group edits for review; they do not promise transactional execution.

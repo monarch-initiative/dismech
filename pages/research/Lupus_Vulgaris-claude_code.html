@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lupus Vulgaris · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Lupus Vulgaris</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Lupus Vulgaris</h1>
+                
+                <p class="report-subtitle">Lupus Vulgaris (MONDO:0006838): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0006838" target="_blank" rel="noopener noreferrer">MONDO:0006838</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">14 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Lupus Vulgaris (<a href="http://purl.obolibrary.org/obo/MONDO_0006838" target="_blank" rel="noopener noreferrer">MONDO:0006838</a>): Disease Characteristics Report</h1>
+<p><strong>How I read the request:</strong> Lupus vulgaris (LV) is an infectious disease. It is a chronic, paucibacillary form of cutaneous tuberculosis caused by <em>Mycobacterium tuberculosis</em> complex organisms. <strong>It has no causal human gene.</strong> The template records none, and I found no gene or OMIM entry attributed to LV. The only "causal" genome is that of the pathogen (<em>M. tuberculosis</em>, occasionally <em>M. bovis</em> or BCG). The genetic sections below are therefore marked mostly not applicable, with host-susceptibility context given only where I retrieved it. LV is also unrelated to systemic or cutaneous lupus erythematosus, despite the shared name.</p>
+<p><strong>Retrieval limits:</strong> PubMed abstract pages and Europe PMC were partly unavailable during this run (cookie walls and HTTP 503 errors), and a search on animal models was blocked. Each item below is labelled by how it was checked:
+- <strong>Verified</strong> means I read the page or record and checked its identifiers.
+- <strong>Index</strong> means the PMID or details come from a search-engine result, and I did not read the abstract.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview</strong>
+- LV is "a chronic, progressive, paucibacillary form of cutaneous tuberculosis" (Behera et al., <em>Cureus</em> 2023, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a></strong>, verified; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10420341/" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC10420341/</a>).
+- "Lupus vulgaris is the most common form of cutaneous tuberculosis in adults" (Pai et al., <em>Indian Dermatol Online J</em> 2014, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a></strong>, verified; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4228641" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC4228641</a>).
+- A 2026 review describes it as "the most common and indolent form in regions of moderate tuberculosis endemicity" (Knecht-Gurwin et al., <em>J Clin Med</em> 2026, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a></strong>, verified; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12842349/" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC12842349/</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>ID</th>
+<th>How checked</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0006838" target="_blank" rel="noopener noreferrer">MONDO:0006838</a> "lupus vulgaris"</td>
+<td>Verified via the OLS4 API</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D008177 "Lupus Vulgaris"</td>
+<td>Verified via NLM MeSH lookup and the MONDO xref</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C0024131</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>10528009</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>MedDRA</td>
+<td>10025143</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>MedGen</td>
+<td>9821</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0024483</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>EFO</td>
+<td><a href="https://bioregistry.io/EFO:1001023" target="_blank" rel="noopener noreferrer">EFO:1001023</a></td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>ICD-11 foundation</td>
+<td>1292667822</td>
+<td>MONDO xref</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A18.4 (tuberculosis of skin and subcutaneous tissue)</td>
+<td>Standard code; not retrieved this session</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>None (not a Mendelian disorder)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Orphanet</td>
+<td>No entry retrieved</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>MONDO definition (inherited from MeSH):</strong> "A form of cutaneous tuberculosis. It is seen predominantly in women and typically involves the nasal mucosa; buccal mucosa; and conjunctival mucosa." This is verified text. Note that recent series report roughly equal sex ratios (Section 9).</p>
+<p><strong>Synonyms:</strong> MONDO lists none. In the literature, LV is also called "lupus vulgaris tuberculosis" and grouped as reinfection or post-primary cutaneous TB, a paucibacillary form.</p>
+<p><strong>Source type:</strong> All evidence is aggregated literature: case series and case reports. None comes from EHR-derived resources.</p>
+<h2>2. Etiology</h2>
+<p><strong>Causal factor</strong>
+- LV is caused by infection with <em>M. tuberculosis</em> complex organisms in a host who already has immunity to them.
+- "Lupus vulgaris is caused by hematogenous, lymphatic, or contiguous spread from elsewhere in the body" (<a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a>, verified).
+- It can also arise by direct inoculation, including from BCG vaccine: "Lupus vulgaris is a paucibacillary form of cutaneous tuberculosis that occurs either via hematogenous spread or direct inoculation" (Parmar et al., <em>An Bras Dermatol</em> 2021, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a></strong>, verified).</p>
+<p><strong>Risk factors</strong>
+- <strong>Prior sensitisation.</strong> LV "generally affects previously sensitized patients, who have a delayed, strongly positive hypersensitivity reaction to the tuberculin skin test" (Jaka-Moreno et al., <em>Actas Dermosifiliogr</em> 2012;103:251-3; <a href="https://actasdermo.org/en-lupus-vulgaris-caused-by-mycobacterium-articulo-S1578219012001047" target="_blank" rel="noopener noreferrer">https://actasdermo.org/en-lupus-vulgaris-caused-by-mycobacterium-articulo-S1578219012001047</a>; PMID not retrieved).
+- <strong>Living in a TB-endemic area.</strong> Indian series dominate the literature (Singal et al., <em>Int J Dermatol</em> 2022, DOI 10.1111/ijd.16267; <a href="https://pubmed.ncbi.nlm.nih.gov/35583803/" target="_blank" rel="noopener noreferrer">PMID 35583803</a> per index).
+- <strong>Older age in Europe.</strong> One source states that "in Europe, lupus vulgaris is characteristically a disease of elder people, whereas in developing countries younger persons are mostly concerned" (Springer case report, s13555-016-0158-x; search snippet only, paywalled).
+- <strong>Exposure to <em>M. bovis</em>.</strong> This means contact with infected animals or ingestion of unpasteurised milk (Jaka-Moreno 2012).
+- <strong>BCG vaccination.</strong> LV after BCG "occurs in 5 per million vaccinations" (<a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a>, verified). The risk is reportedly higher after repeated vaccination (search summary).
+- <strong>Immunosuppression and genetic susceptibility</strong> have been proposed, but I retrieved no LV-specific data.</p>
+<p><strong>Genetic risk factors:</strong> No LV-specific genetic association study was found.
+- Inborn errors of the IL-12/IFN-γ axis (IL12RB1, IFNGR1, IFNGR2, IL12B, STAT1) cause Mendelian susceptibility to mycobacterial disease (MSMD) and predispose to BCG and mycobacterial disease in general.
+- Candidate-gene studies link SNPs in IFNG, IFNGR1, IL12A, IL12B, IL12RB1 and STAT4 to TB in general (e.g., <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4930082" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC4930082</a>; OMIM 601604).
+- None of these studies examined LV directly.</p>
+<p><strong>Protective factors</strong>
+- Pasteurisation of milk and eradication of bovine TB lowered the incidence of LV caused by <em>M. bovis</em> (Jaka-Moreno 2012).
+- Effective treatment of underlying TB foci is also protective. No protective genetic variants are known.</p>
+<p><strong>Gene–environment interaction:</strong> No LV-specific data are available. The general principle is that the host's IFN-γ/Th1 competence shapes the clinical form that follows mycobacterial exposure (Santos et al., <em>An Bras Dermatol</em> 2014, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/24770496/" target="_blank" rel="noopener noreferrer">PMID 24770496</a></strong>, verified): "The clinical manifestations are variable and depend on the interaction of several factors."</p>
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO term</th>
+<th>Type</th>
+<th>Frequency, onset and course</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Reddish-brown papules and nodules ("lupomas") that merge into plaques</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200034" target="_blank" rel="noopener noreferrer">HP:0200034</a> Papule; <a href="http://purl.obolibrary.org/obo/HP_0200036" target="_blank" rel="noopener noreferrer">HP:0200036</a> Skin nodule; <a href="http://purl.obolibrary.org/obo/HP_0200035" target="_blank" rel="noopener noreferrer">HP:0200035</a> Skin plaque</td>
+<td>Sign</td>
+<td>Defining feature. Plaque type was most common in Pai 2014, with 7 of 14 cases</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a> ("Plaque-type lesions were most commonly encountered")</td>
+</tr>
+<tr>
+<td>Apple-jelly colour on diascopy</td>
+<td>No specific HPO term; use <a href="http://purl.obolibrary.org/obo/HP_0000951" target="_blank" rel="noopener noreferrer">HP:0000951</a> Abnormality of the skin plus a free-text note</td>
+<td>Sign</td>
+<td>Characteristic but not pathognomonic</td>
+<td>DermNet NZ (<a href="https://pro.dermnetnz.org/bacterial/tuberculosis.html" target="_blank" rel="noopener noreferrer">https://pro.dermnetnz.org/bacterial/tuberculosis.html</a>)</td>
+</tr>
+<tr>
+<td>Dermoscopy: yellow-orange structureless areas, linear and branching vessels, white scale</td>
+<td>—</td>
+<td>Sign / imaging</td>
+<td>Common. Overlaps with sarcoidosis</td>
+<td>Search summary of dermoscopy reviews (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7734991" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC7734991</a>)</td>
+</tr>
+<tr>
+<td>Scaling or hyperkeratosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0040189" target="_blank" rel="noopener noreferrer">HP:0040189</a> Scaling skin</td>
+<td>Sign</td>
+<td>Variable</td>
+<td>Same as above</td>
+</tr>
+<tr>
+<td>Ulceration</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0200042" target="_blank" rel="noopener noreferrer">HP:0200042</a> Skin ulcer</td>
+<td>Sign</td>
+<td>Ulcerative variant</td>
+<td>Search summary of Pai 2014</td>
+</tr>
+<tr>
+<td>Atrophic scarring with central healing and peripheral extension</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0100699" target="_blank" rel="noopener noreferrer">HP:0100699</a> Scarring; <a href="http://purl.obolibrary.org/obo/HP_0100679" target="_blank" rel="noopener noreferrer">HP:0100679</a> Lack of skin elasticity / atrophy</td>
+<td>Sign</td>
+<td>Chronic, progressive</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a></td>
+</tr>
+<tr>
+<td>Tissue destruction and disfigurement (nose, ear)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000453" target="_blank" rel="noopener noreferrer">HP:0000453</a> Choanal atresia — <strong>inappropriate</strong>; use <a href="http://purl.obolibrary.org/obo/HP_0005288" target="_blank" rel="noopener noreferrer">HP:0005288</a> Abnormality of the nose plus free text</td>
+<td>Sign</td>
+<td>Long-standing, untreated disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a> ("irreversible tissue damage")</td>
+</tr>
+<tr>
+<td>Strongly positive tuberculin skin test</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033349" target="_blank" rel="noopener noreferrer">HP:0033349</a> (positive tuberculin test, if available)</td>
+<td>Laboratory</td>
+<td>Typical</td>
+<td>Jaka-Moreno 2012</td>
+</tr>
+<tr>
+<td>Non-caseating tuberculoid granulomas without acid-fast bacilli</td>
+<td>—</td>
+<td>Laboratory / histology</td>
+<td>100% in Behera 2023</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a></td>
+</tr>
+<tr>
+<td>Squamous cell carcinoma in the lesion</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002860" target="_blank" rel="noopener noreferrer">HP:0002860</a> Squamous cell carcinoma</td>
+<td>Complication</td>
+<td>0.5–10.5%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity and quality of life</strong>
+- Severity is usually mild systemically but can be locally destructive and disfiguring.
+- I retrieved no EQ-5D, SF-36 or other validated quality-of-life data. Facial disfigurement is the main impact on quality of life (inferred).
+- Onset is usually in adolescence or adulthood (Section 8).</p>
+<h2>4. Genetic/Molecular Information</h2>
+<p><strong>Not applicable.</strong> No causal genes, pathogenic variants, ClinVar entries, modifier genes, epigenetic findings or chromosomal abnormalities have been reported for LV.
+- The pathogen is the relevant genome: <em>M. tuberculosis</em> (NCBITaxon:1773) and <em>M. bovis</em> (NCBITaxon:1765).
+- <em>M. bovis</em> "is inherently resistant to pyrazinamide" (<a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a>, verified). This has practical consequences for treatment.
+- Multidrug-resistant LV has been reported (<em>Indian Dermatol Online J</em> 2017; DOAJ record <a href="https://doaj.org/article/7090fd94460d45a39e64692636f0db5e" target="_blank" rel="noopener noreferrer">https://doaj.org/article/7090fd94460d45a39e64692636f0db5e</a>; PMID not retrieved).</p>
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agents:</strong> <em>M. tuberculosis</em> is the usual cause. <em>M. bovis</em> is rare: one review found 4 cases of <em>M. bovis</em> LV in 20 years (Jaka-Moreno 2012). Attenuated <em>M. bovis</em> BCG causes LV at vaccination sites (<a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/35024215/" target="_blank" rel="noopener noreferrer">PMID 35024215</a>, index).</li>
+<li><strong>Exposures:</strong> Raw milk, infected cattle, and residence in TB-endemic regions.</li>
+<li><strong>Lifestyle factors:</strong> No LV-specific data were retrieved for smoking, alcohol or diet.</li>
+</ul>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain</strong></p>
+<ol>
+<li>A person previously sensitised to <em>M. tuberculosis</em> complex, with a strongly positive tuberculin response, is exposed to mycobacteria (Jaka-Moreno 2012).</li>
+<li>Bacilli reach the dermis by one of two routes:</li>
+<li>2a. Hematogenous or lymphatic spread, or contiguous extension, from an endogenous focus such as the lungs or lymph nodes (<a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a>).</li>
+<li>2b. Exogenous inoculation, including the BCG vaccination site (<a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a>).</li>
+<li>Dermal macrophages ingest the bacilli. This <strong>leads to</strong> antigen presentation and activation of a Th1 / IFN-γ response. The response in TB "occurs basically via the Th1 pathway" (<a href="https://pubmed.ncbi.nlm.nih.gov/24770496/" target="_blank" rel="noopener noreferrer">PMID 24770496</a>). That this step operates in LV specifically is <strong>inferred</strong> from general TB immunology.</li>
+<li>IFN-γ and TNF <strong>result in</strong> macrophages differentiating into epithelioid cells and Langhans giant cells, which form well-organised tuberculoid granulomas. This is the histology seen in all 19 cases of Behera 2023 (<a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a>).</li>
+<li>Effective but incomplete containment <strong>leads to</strong> a paucibacillary state, in which bacilli are scarce or undetectable and culture is positive in fewer than 10% of cases (Jaka-Moreno 2012). The infection persists as a low-grade, chronic infection.</li>
+<li>Chronic granulomatous inflammation <strong>results in</strong> papules and plaques that slowly spread at the edge while scarring and atrophy develop in the centre. Destruction of cartilage and soft tissue causes disfigurement over years to decades (<a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a>). The disease then branches:</li>
+<li>6a. Epidermal reaction leads to pseudoepitheliomatous hyperplasia, which gives hypertrophic or verrucous variants. Alternatively, the epidermis becomes atrophic.</li>
+<li>6b. Decades of inflammation and scarring can lead to malignant transformation, usually into squamous cell carcinoma, at a reported rate of 0.5–10.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a>). The mechanism, a Marjolin-type tumour driven by chronic inflammation, is <strong>inferred</strong> from case reports.</li>
+</ol>
+<p><strong>Checklist coverage</strong>
+- <strong>Immune involvement:</strong> Th1-polarised delayed-type hypersensitivity. "There are still no comparative studies of immune status across the clinical forms" (search summary of <a href="https://pubmed.ncbi.nlm.nih.gov/24770496/" target="_blank" rel="noopener noreferrer">PMID 24770496</a>).
+- <strong>Cellular processes:</strong> <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a> granuloma formation; <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" rel="noopener noreferrer">GO:0042742</a> defense response to bacterium; <a href="http://purl.obolibrary.org/obo/GO_0032729" target="_blank" rel="noopener noreferrer">GO:0032729</a> positive regulation of type II interferon (IFN-γ) production; <a href="http://purl.obolibrary.org/obo/GO_0042110" target="_blank" rel="noopener noreferrer">GO:0042110</a> T cell activation.
+- <strong>Cell types:</strong> <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a> macrophage; <a href="http://purl.obolibrary.org/obo/CL_0000622" target="_blank" rel="noopener noreferrer">CL:0000622</a> epithelioid cell (verify the term); multinucleated giant cell (<a href="http://purl.obolibrary.org/obo/CL_0000647" target="_blank" rel="noopener noreferrer">CL:0000647</a>, verify the ID); <a href="http://purl.obolibrary.org/obo/CL_0000545" target="_blank" rel="noopener noreferrer">CL:0000545</a> T-helper 1 cell; <a href="http://purl.obolibrary.org/obo/CL_0000312" target="_blank" rel="noopener noreferrer">CL:0000312</a> keratinocyte (hyperplasia and SCC); lymphocyte.
+- <strong>Omics, single-cell, spatial and CRISPR data:</strong> None were retrieved for LV.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> skin of the head and neck (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body). The face is most often involved: the nose (<a href="http://purl.obolibrary.org/obo/UBERON_0000004" target="_blank" rel="noopener noreferrer">UBERON:0000004</a>), cheek (<a href="http://purl.obolibrary.org/obo/UBERON_0001567" target="_blank" rel="noopener noreferrer">UBERON:0001567</a>) and ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001690" target="_blank" rel="noopener noreferrer">UBERON:0001690</a>). The MONDO definition also lists nasal, buccal and conjunctival mucosa.</li>
+<li><strong>Neck:</strong> Neck involvement is uncommon. The Turkish neck case (<a href="https://pubmed.ncbi.nlm.nih.gov/21738972/" target="_blank" rel="noopener noreferrer">PMID 21738972</a>, index) was described as the "fifth case in the literature".</li>
+<li><strong>Extremities and buttocks:</strong> These are reported sites, especially in Indian series (Behera 2023; Pai 2014).</li>
+<li><strong>BCG-associated LV:</strong> This occurs at the vaccination site, usually the deltoid skin (<a href="http://purl.obolibrary.org/obo/UBERON_0001482" target="_blank" rel="noopener noreferrer">UBERON:0001482</a>).</li>
+<li><strong>Tissue level:</strong> dermis (<a href="http://purl.obolibrary.org/obo/UBERON_0002067" target="_blank" rel="noopener noreferrer">UBERON:0002067</a>) and epidermis (<a href="http://purl.obolibrary.org/obo/UBERON_0001003" target="_blank" rel="noopener noreferrer">UBERON:0001003</a>). Cartilage is affected in destructive disease.</li>
+<li><strong>Subcellular level:</strong> phagosome / phagolysosome (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>, <a href="http://purl.obolibrary.org/obo/GO_0032010" target="_blank" rel="noopener noreferrer">GO:0032010</a>). This is inferred from the general biology of mycobacteria inside macrophages.</li>
+<li><strong>Laterality:</strong> Usually a single, asymmetric plaque. Multifocal disease occurs.</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Insidious and chronic. Diagnosis is often delayed:</li>
+<li>The mean duration before diagnosis was 15.3 months in the Singal 22-year cohort.</li>
+<li>A German <em>M. bovis</em> case was diagnosed about 20 years after onset (Springer, search snippet).</li>
+<li><strong>Course:</strong> Slowly progressive over years to decades. Lesions extend at the edge and scar in the centre.</li>
+<li><strong>Long-standing disease:</strong> SCC has arisen after more than 60 years (<a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a>) and after 50 years (<a href="https://pubmed.ncbi.nlm.nih.gov/20046107/" target="_blank" rel="noopener noreferrer">PMID 20046107</a>, index).</li>
+<li><strong>Spontaneous remission:</strong> Rare and incomplete; scarring persists.</li>
+<li><strong>Remission with treatment:</strong> Antitubercular therapy brings treatment-induced remission (Section 12).</li>
+<li><strong>BCG-associated LV:</strong> Onset ranges from weeks to years after vaccination, with a reported mean of about 1 year (search summary).</li>
+<li><strong>Window for intervention:</strong> Early treatment prevents disfigurement and malignant change (<a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a>).</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> Not applicable (infectious disease).</li>
+<li><strong>Burden in India:</strong></li>
+<li>Cutaneous TB makes up about 0.1–2% of dermatology outpatient attendance in Indian reports (search summary).</li>
+<li>LV accounted for 40.4% of 1,458 cutaneous TB patients over 22 years in Delhi, ahead of scrofuloderma (32.7%) and lichen scrofulosorum (15.2%). Of the cohort, 803 patients were children (Singal 2022).</li>
+<li>In smaller series, LV made up 51% (19 of 37) of cutaneous TB in an Indian armed-forces series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3221221" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC3221221</a>) and is cited as 75% of cutaneous TB in Behera 2023.</li>
+<li><strong>Burden in Europe:</strong> It is "the most common form of CTB in Europe and India" (<a href="https://pubmed.ncbi.nlm.nih.gov/24770496/" target="_blank" rel="noopener noreferrer">PMID 24770496</a>, body text). LV "was the most frequent clinical form of true skin tuberculosis until the 1960s" (<a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a>). In Europe it now mostly affects elderly people.</li>
+<li><strong>Sex ratio:</strong></li>
+<li>Female-to-male ratio of 1.1:1 in Behera 2023.</li>
+<li>Equal numbers of each sex in Pai 2014.</li>
+<li>The MONDO/MeSH definition says LV is predominantly seen in women.</li>
+<li><strong>Age:</strong> Adults predominate. Scrofuloderma is more common than LV in children (Pai 2014).</li>
+<li><strong>Population incidence:</strong> No incidence or prevalence per 100,000 was retrieved.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<p><strong>Histopathology (the mainstay)</strong>
+- Tuberculoid granulomas made of epithelioid cells, Langhans giant cells and a lymphocytic rim, usually with little or no caseation.
+- "Histologically it is charecterised by typical tubercles with or without caseation" (<a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a>; spelling as in the source).
+- Behera 2023: "all showed a tuberculoid granuloma with no demonstration of acid-fast bacilli" (<a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a>).
+- The epidermis may be atrophic or show pseudoepitheliomatous hyperplasia.</p>
+<p><strong>Microbiology</strong>
+- Ziehl–Neelsen staining is usually negative.
+- Culture is positive in fewer than 10% of cases (Jaka-Moreno 2012), but it identifies the species (e.g., <em>M. bovis</em>).
+- Overall, "almost all of the diagnostic methods confer lower sensitivity and specificities" (Khadka et al., <em>Dermatol Res Pract</em> 2018, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/30111996/" target="_blank" rel="noopener noreferrer">PMID 30111996</a></strong>, verified).</p>
+<p><strong>Molecular tests</strong>
+- PCR on tissue has a reported positivity of about 60% in LV, taken from a literature table (search summary).
+- Nested PCR on paraffin-embedded tissue was positive in 24 of 30 cutaneous TB samples, but only 2 of these were LV (<a href="https://pubmed.ncbi.nlm.nih.gov/30531542/" target="_blank" rel="noopener noreferrer">PMID 30531542</a>, index).
+- PCR was negative in the culture-proven German <em>M. bovis</em> case.</p>
+<p><strong>Immunological tests</strong>
+- The tuberculin skin test is strongly positive (Jaka-Moreno 2012).
+- IGRA has not been studied specifically in LV in the sources retrieved.</p>
+<p><strong>Bedside tests</strong>
+- Diascopy shows the apple-jelly sign.
+- Dermoscopy shows yellow-orange structureless areas, which also occur in sarcoidosis.</p>
+<p><strong>Imaging and other work-up</strong>
+- Chest X-ray is used to look for an underlying focus. No LV-specific yield data were retrieved.</p>
+<p><strong>Therapeutic trial</strong>
+- When tests are inconclusive, a trial of antitubercular therapy is used diagnostically. The trial duration is debated (see the Ramam-type study in Section 12).</p>
+<p><strong>Differential diagnosis</strong>
+- Cutaneous sarcoidosis, discoid lupus erythematosus, leprosy (tuberculoid), basal cell carcinoma, cutaneous leishmaniasis, deep fungal infection, granuloma faciale, and rosacea or granulomatous rosacea (DermNet; search summaries).</p>
+<p><strong>Genetic testing</strong>
+- Not applicable. Consider MSMD gene testing (IL12RB1, IFNGR1, etc.) only if mycobacterial disease is disseminated or BCG-associated disease is severe. This is a general principle, not an LV-specific recommendation.</p>
+<p><strong>Screening</strong>
+- Asymptomatic people are not screened for LV.</p>
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> LV itself rarely kills. No LV-specific survival or mortality data were retrieved.</li>
+<li><strong>Morbidity:</strong> Scarring, mutilation of the nose and ears, and contractures.</li>
+<li><strong>Malignancy:</strong></li>
+<li>SCC is the main malignant complication, at a reported rate of 0.5–10.5% (<a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a>).</li>
+<li>"Chronic LV lesions persisting for decades may undergo malignant transformation" (<a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a>).</li>
+<li>Basal cell carcinoma has also been reported (Vora et al., <em>IJDVL</em> 1995, per search summary).</li>
+<li>SCC has also occurred in multidrug-resistant LV (IDOJ 2017).</li>
+<li><strong>Prognostic factors:</strong> Long disease duration, delayed diagnosis, drug resistance, and tissue destruction (inferred from the case literature).</li>
+<li><strong>Recovery:</strong> Good with therapy, with residual scarring. The German <em>M. bovis</em> case healed completely.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy</strong>
+- Standard antitubercular therapy follows WHO guidance: isoniazid, rifampicin, pyrazinamide and ethambutol until susceptibilities are known (search summary of CMAJ 2025, <a href="https://www.cmaj.ca/content/197/8/E215" target="_blank" rel="noopener noreferrer">https://www.cmaj.ca/content/197/8/E215</a>).
+- Usual adult daily doses are isoniazid 5 mg/kg (maximum 300 mg), rifampicin 10 mg/kg (maximum 600 mg), pyrazinamide 20–25 mg/kg and ethambutol 15–20 mg/kg (dosing table, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2923933" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC2923933</a>).
+- India's ICMR Standard Treatment Workflow for skin TB is available at <a href="https://icmr.gov.in/icmrobject/uploads/STWs/1725964688_7_skin_tuberculosis_18032022.pdf" target="_blank" rel="noopener noreferrer">https://icmr.gov.in/icmrobject/uploads/STWs/1725964688_7_skin_tuberculosis_18032022.pdf</a>. I did not read its content.
+- Suggested NCIT terms: Isoniazid (C576), Rifampin (C787), Pyrazinamide (C774), Ethambutol (C61758). These codes are from memory; <strong>verify them</strong>.</p>
+<p><strong>Treatment response</strong>
+- In a 2006 Indian study of 213 cutaneous TB patients on daily rifampicin plus isoniazid for 9 months, "ninety-two per cent of the patients showed resolution of the lesions within the first 6 months," and none relapsed over 3 years (Epistemonikos record <a href="https://www.epistemonikos.org/en/documents/1dd3a1455dc994b841da132b1d053ea46522b5aa" target="_blank" rel="noopener noreferrer">https://www.epistemonikos.org/en/documents/1dd3a1455dc994b841da132b1d053ea46522b5aa</a>; PMID not retrieved).
+- BCG-related LV: treat for <em>M. bovis</em> resistance to pyrazinamide, since the organism is "inherently resistant to pyrazinamide and ethambutol is avoided in children due to its ophthalmologic side effects" (<a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a>).</p>
+<p><strong>Surgery</strong>
+- "Surgical excision of residual or recalcitrant lesions are crucial to prevent complications" (<a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a>).
+- Reconstructive surgery is used for deformities.
+- SCC arising in LV is managed by excision.</p>
+<p><strong>Historical treatment</strong>
+- Niels Finsen received the 1903 Nobel Prize "for treating diseases, especially lupus vulgaris, with concentrated light radiation" (<a href="https://www.nobelprize.org/prizes/medicine/1903/finsen/facts/" target="_blank" rel="noopener noreferrer">https://www.nobelprize.org/prizes/medicine/1903/finsen/facts/</a>). Antibiotics later replaced phototherapy.</p>
+<p><strong>Gene, cell, RNA, targeted and immune therapies</strong>
+- Not applicable. No registered LV-specific trials (NCT numbers) were found.</p>
+<p><strong>Adverse effects</strong>
+- These are the standard effects of antitubercular therapy: hepatotoxicity (isoniazid, rifampicin, pyrazinamide) and optic neuritis (ethambutol). This is general pharmacology, not retrieved specifically for LV.</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li>TB control in general.</li>
+<li>Milk pasteurisation and eradication of bovine TB, which reduced <em>M. bovis</em> LV (Jaka-Moreno 2012).</li>
+<li>Good BCG technique and avoiding repeat BCG vaccination. BCG itself is a rare cause of LV, at about 5 per million doses.</li>
+<li><strong>Secondary prevention:</strong> Early biopsy of chronic plaques on the face or neck, and early treatment.</li>
+<li><strong>Tertiary prevention:</strong></li>
+<li>Complete the full course of antitubercular therapy.</li>
+<li>Excise residual lesions.</li>
+<li>Follow up long-standing lesions for a long time to catch SCC; the 50-year case authors argued for extended follow-up (<a href="https://pubmed.ncbi.nlm.nih.gov/20046107/" target="_blank" rel="noopener noreferrer">PMID 20046107</a>, index).</li>
+<li><strong>Genetic counselling:</strong> Not applicable.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li>No naturally occurring animal disease equivalent to LV was found (OMIA not applicable).</li>
+<li><strong>Zoonotic link:</strong> Cattle (<em>Bos taurus</em>, NCBITaxon:9913) infected with <em>M. bovis</em> are a source of human LV through contact or raw milk (Jaka-Moreno 2012).</li>
+<li>Cutaneous tuberculosis in animals was not researched, because the search was blocked.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>No data were retrieved.</strong> My search on animal models of cutaneous tuberculosis was refused by the tool, so I cannot cite any model of LV.</li>
+<li>I found no established genetic model (MGI, IMPC) that is specific to LV.</li>
+<li>General models of mycobacterial granulomas exist in mice, guinea pigs, rabbits and zebrafish, but I did not verify them this session. They should be sourced separately before they go into the knowledge base.</li>
+</ul>
+<hr />
+<h3>Key verified citations</h3>
+<ul>
+<li>Behera B et al. <em>Cureus</em> 2023. <a href="https://pubmed.ncbi.nlm.nih.gov/37575838/" target="_blank" rel="noopener noreferrer">PMID 37575838</a></li>
+<li>Pai VV et al. <em>Indian Dermatol Online J</em> 2014. <a href="https://pubmed.ncbi.nlm.nih.gov/25396129/" target="_blank" rel="noopener noreferrer">PMID 25396129</a></li>
+<li>Santos JB et al. <em>An Bras Dermatol</em> 2014. <a href="https://pubmed.ncbi.nlm.nih.gov/24770496/" target="_blank" rel="noopener noreferrer">PMID 24770496</a></li>
+<li>Khadka P et al. <em>Dermatol Res Pract</em> 2018. <a href="https://pubmed.ncbi.nlm.nih.gov/30111996/" target="_blank" rel="noopener noreferrer">PMID 30111996</a></li>
+<li>Knecht-Gurwin K et al. <em>J Clin Med</em> 2026. <a href="https://pubmed.ncbi.nlm.nih.gov/41598640/" target="_blank" rel="noopener noreferrer">PMID 41598640</a></li>
+<li>Miyake T et al. <em>Int Cancer Conf J</em> 2017. <a href="https://pubmed.ncbi.nlm.nih.gov/31149488/" target="_blank" rel="noopener noreferrer">PMID 31149488</a></li>
+<li>Parmar NV et al. <em>An Bras Dermatol</em> 2021. <a href="https://pubmed.ncbi.nlm.nih.gov/34272074/" target="_blank" rel="noopener noreferrer">PMID 34272074</a></li>
+</ul>
+<p><strong>Index-only, to verify:</strong> PMIDs 20046107, 21738972, 35583803 (Singal 2022), 30531542, 35024215, 17350496.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>20</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>4</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>20</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>11</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<ul>
+<li><code>PMID:24770496</code>: "occurs basically via the Th1 pathway"</li>
+<li>closest text in source: "6 The immune response in tuberculosis occurs basically via Th1 pathway, with little or no involvement of Th2 pathway"</li>
+<li><code>PMID:24770496</code>: "There are still no comparative studies of immune status across the clinical forms"</li>
+<li>closest text in source: "Some case reports describe the patterns of the predominant cytokines for each clinical form, such as lupus vulgaris and tuberculosis verrucosa cutis, however there are still no comparative studies showing variance in the immune status in different forms of TB"</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMID:34272074</code>: "Lupus vulgaris is a paucibacillary form of cutaneous tuberculosis that occurs either via hematogenous spread or direct inoculation"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>PMID:34272074</code>: "occurs in 5 per million vaccinations"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>PMID:34272074</code>: "is inherently resistant to pyrazinamide"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+<li><code>PMID:34272074</code>: "inherently resistant to pyrazinamide and ethambutol is avoided in children due to its ophthalmologic side effects"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>EFO:1001023</code> (1 mention) - the report calls it "EFO"; EFO calls it <strong>obsolete_lupus vulgaris</strong></li>
+<li><code>HP:0033349</code> (1 mention) - the report calls it "positive tuberculin test, if available"; HP calls it <strong>Seizure cluster</strong></li>
+</ul>
+<h3>Obsolete terms</h3>
+<p>These terms are real but deprecated. Citing one is not a fabrication; it does mean the report is naming something the ontology has retired:</p>
+<ul>
+<li><code>EFO:1001023</code> (obsolete_lupus vulgaris) (1 mention) - replaced by <code>http://purl.obolibrary.org/obo/MONDO:0006838</code></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCBITaxon:1773</code> (1 mention) - the report calls it "M. tuberculosis"; NCBITaxon calls it <strong>Mycobacterium tuberculosis</strong>, and lists "Bacterium tuberculosis" among its other names</li>
+<li><code>NCBITaxon:1765</code> (1 mention) - the report calls it "M. bovis"; NCBITaxon calls it <strong>Mycobacterium tuberculosis variant bovis</strong>, and lists "Mycobacterium bovis" among its other names</li>
+<li><code>UBERON:0002067</code> (1 mention) - the report calls it "Tissue level:<strong> dermis"; UBERON calls it </strong>dermis**, and lists "vertebrate dermis" among its other names</li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>1 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>UBERON:0001003</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>2 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>GO:0045335</code> (1 mention)</li>
+<li><code>NCBITaxon:9913</code> (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Lupus_Nephritis-claude_code.html">← Lupus Nephritis (Claude Code)</a>
+                
+                
+                <a href="Luscan-Lumish_Syndrome-openscientist.html">Luscan-Lumish Syndrome (OpenScientist) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Lupus_Vulgaris.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Lupus_Vulgaris-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

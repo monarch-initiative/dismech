@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 import re
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import ClassVar
 
@@ -132,6 +132,8 @@ class PhenotypeRecord:
     ontology: list[tuple[str, str]] = field(default_factory=list)
     codes: list[Code] = field(default_factory=list)
     doi: str = ""
+    #: Codes deliberately left out, as ``{coding system name: count}``.
+    omitted: dict[str, int] = field(default_factory=dict)
 
     @property
     def url(self) -> str:
@@ -143,6 +145,29 @@ class PhenotypeRecord:
         for code in self.codes:
             groups.setdefault((code.concept, code.system), []).append(code)
         return groups
+
+
+def omit_code_systems(record: PhenotypeRecord, prefixes: set[str]) -> PhenotypeRecord:
+    """Drop every code whose dismech prefix is in ``prefixes``, counting them.
+
+    The omission is recorded in ``record.omitted`` so the cache body and the
+    converted definition can both say what was left out.
+
+    >>> r = PhenotypeRecord("PH1", 1, "x", codes=[
+    ...     Code("SNOMED  CT codes", "1", "a", "c"), Code("ICD10 codes", "D57.0", "b", "c")])
+    >>> kept = omit_code_systems(r, {"SNOMEDCT"})
+    >>> [c.curie for c in kept.codes], kept.omitted
+    (['ICD10:D57.0'], {'SNOMED CT codes': 1})
+    """
+    kept: list[Code] = []
+    omitted = dict(record.omitted)
+    for code in record.codes:
+        if code.prefix in prefixes:
+            system = " ".join(code.system.split())
+            omitted[system] = omitted.get(system, 0) + 1
+        else:
+            kept.append(code)
+    return replace(record, codes=kept, omitted=omitted)
 
 
 def _names(items: object) -> str:
@@ -231,7 +256,44 @@ def parse_record(detail: dict | list, codes: list[dict]) -> PhenotypeRecord:
                 concept=" ".join(row["concept_name"].split()),
             )
         )
+    record.codes = relabel_numeric_read_codes(record.codes)
     return record
+
+
+#: System name given to a "Read codes v2" concept whose codes are all digits.
+NUMERIC_READ_SYSTEM = "Read codes v2 (all numeric: CPRD medcodes or product codes)"
+
+
+def relabel_numeric_read_codes(codes: list[Code]) -> list[Code]:
+    """Relabel a Read v2 concept whose codes are all digits as unmapped.
+
+    Some library records list CPRD medcodes or product codes (``10081``
+    "Chronic uraemia", ``11536`` "Methylphenidate 20mg ...") under "Read codes
+    v2". A Read v2 code has five characters drawn from digits, letters and
+    dots, so a five-digit medcode passes a syntax check, but a whole concept
+    with no letter or dot anywhere is not a Read list. Its codes keep their
+    values and get a system name with no dismech prefix, so they are cached
+    but not transcribed.
+
+    >>> codes = [Code("Read codes v2", "10081", "Chronic uraemia", "CKD"),
+    ...          Code("Read codes v2", "1803", "Nephrotic syndrome", "CKD"),
+    ...          Code("Read codes v2", "21260", "Epilepsy resolved", "Epilepsy"),
+    ...          Code("Read codes v2", "F25..", "Epilepsy", "Epilepsy")]
+    >>> [(c.code, c.prefix) for c in relabel_numeric_read_codes(codes)]
+    [('10081', None), ('1803', None), ('21260', 'READ2'), ('F25..', 'READ2')]
+    """
+    numeric: dict[str, bool] = {}
+    for code in codes:
+        if code.system == "Read codes v2":
+            numeric[code.concept] = (
+                numeric.get(code.concept, True) and code.code.isdigit()
+            )
+    return [
+        replace(code, system=NUMERIC_READ_SYSTEM)
+        if code.system == "Read codes v2" and numeric[code.concept]
+        else code
+        for code in codes
+    ]
 
 
 def render_body(record: PhenotypeRecord) -> str:
@@ -280,6 +342,13 @@ def _render_lines(record: PhenotypeRecord) -> Iterator[str]:
             )
     yield from _md_table(["Code", "Description", "Concept"], code_rows)
     yield ""
+    if record.omitted:
+        yield (
+            "Not cached: "
+            + "; ".join(f"{n} {system}" for system, n in sorted(record.omitted.items()))
+            + ". See the library record for those codes."
+        )
+        yield ""
     yield "## Source"
     yield ""
     yield (
@@ -341,10 +410,19 @@ class HDRUKSource(StructuredSource):
             return response.json()
 
     def fetch(self, identifier: str) -> PhenotypeRecord:
-        """Fetch and parse the latest published version of one phenotype."""
+        """Fetch and parse the latest *published* version of one phenotype.
+
+        The unversioned endpoints serve the latest version, which is refused
+        ("Entity version must be published") when that version is a draft,
+        so the version is chosen from the record's version list first.
+        """
         pid = normalize_identifier(identifier)
-        detail = self.fetch_json(f"phenotypes/{pid}/detail/")
-        codes = self.fetch_json(f"phenotypes/{pid}/export/codes/")
+        versions = self.fetch_json(f"phenotypes/{pid}/get-versions/")
+        version = latest_published_version(versions)
+        if version is None:
+            raise KeyError(f"HDR UK has no published version of {pid}")
+        detail = self.fetch_json(f"phenotypes/{pid}/version/{version}/detail/")
+        codes = self.fetch_json(f"phenotypes/{pid}/version/{version}/export/codes/")
         if not isinstance(codes, list):
             raise KeyError(f"HDR UK returned no code export for {pid}")
         return parse_record(detail, codes)
@@ -352,6 +430,22 @@ class HDRUKSource(StructuredSource):
     def serialize(self, identifier: str) -> ReferenceCacheEntry:
         record = self.fetch(identifier)
         return entry_for(record)
+
+
+def latest_published_version(versions: object) -> int | None:
+    """The highest published version id in a ``get-versions`` payload.
+
+    >>> latest_published_version([
+    ...     {"version_id": 3704, "is_published": True},
+    ...     {"version_id": 3900, "is_published": False}])
+    3704
+    >>> latest_published_version([]) is None
+    True
+    """
+    if not isinstance(versions, list):
+        return None
+    published = [int(v["version_id"]) for v in versions if v.get("is_published")]
+    return max(published) if published else None
 
 
 def entry_for(record: PhenotypeRecord) -> ReferenceCacheEntry:

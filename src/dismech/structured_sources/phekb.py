@@ -16,11 +16,14 @@ identifier from ``https://phekb.org/node/<id>``. The cached body holds
   that is an algorithm document** — the code tables and inclusion rules a
   curator needs to quote.
 
-Two kinds of attachment are deliberately not transcribed:
+Three kinds of attachment are deliberately not transcribed:
 
-* a PDF whose first page carries a DOI is a published journal article. It is
-  cited by its PMID instead, and republishing a publisher's PDF here is not
+* a PDF whose first page carries a DOI or an "Abstract" heading is a journal
+  article or author manuscript. It is cited by its PMID instead, and republishing a publisher's PDF here is not
   something a curation cache should do (:func:`is_journal_article`);
+* an attachment whose name or text restricts its distribution ("not for
+  distribution outside eMERGE", "without written permission"). It is listed
+  with that note and its text is not cached (:func:`is_restricted`);
 * Word, SQL, spreadsheet and archive attachments, which are listed but not
   extracted.
 
@@ -91,15 +94,43 @@ def normalize_identifier(identifier: str) -> str:
     return identifier
 
 
+_ABSTRACT_RE = re.compile(r"^\s*abstract\b", re.IGNORECASE | re.MULTILINE)
+
+
 def is_journal_article(first_page_text: str) -> bool:
-    """True when a PDF's first page looks like a published article (carries a DOI).
+    """True when a PDF's first page looks like an article or manuscript.
+
+    It carries a DOI, or has an "Abstract" heading (an author manuscript or a
+    publisher PDF whose DOI is not on the first page).
 
     >>> is_journal_article("Arthritis Care & Research ... DOI 10.1002/acr.22989")
+    True
+    >>> is_journal_article("An Information Extraction Framework\\nLiu H\\nAbstract\\nWe report")
     True
     >>> is_journal_article("Computable Phenotype for Identification of Patients")
     False
     """
-    return bool(_DOI_RE.search(first_page_text))
+    return bool(_DOI_RE.search(first_page_text) or _ABSTRACT_RE.search(first_page_text))
+
+
+_RESTRICTED_RE = re.compile(
+    r"not\s+for\s+distribution|not\s+(?:to\s+)?be\s+(?:duplicated|distributed|shared)"
+    r"|without\s+(?:the\s+)?(?:prior\s+)?written\s+permission|all\s+rights\s+reserved",
+    re.IGNORECASE,
+)
+
+
+def is_restricted(name: str, text: str) -> bool:
+    """True when an attachment says it may not be redistributed.
+
+    >>> is_restricted("Glossary, not for distribution outside eMERGE", "")
+    True
+    >>> is_restricted("Glossary", "not to be shared outside the eMERGE network without written permission")
+    True
+    >>> is_restricted("Algorithm.pdf", "Inclusion ICD9 codes for Autism")
+    False
+    """
+    return bool(_RESTRICTED_RE.search(name) or _RESTRICTED_RE.search(text))
 
 
 def clean_text(text: str) -> str:
@@ -132,6 +163,7 @@ class PhenotypePage:
     files: list[tuple[str, str]] = field(default_factory=list)  # (name, url)
     attachments: dict[str, str] = field(default_factory=dict)  # name -> text
     skipped_articles: list[str] = field(default_factory=list)
+    restricted: list[str] = field(default_factory=list)
 
     @property
     def url(self) -> str:
@@ -222,11 +254,11 @@ def _render_lines(record: PhenotypePage) -> Iterator[str]:
         yield "## Files"
         yield ""
         for name, _url in record.files:
-            note = (
-                " (journal article; cited by PMID, not transcribed)"
-                if name in record.skipped_articles
-                else ""
-            )
+            note = ""
+            if name in record.skipped_articles:
+                note = " (journal article; cited by PMID, not transcribed)"
+            elif name in record.restricted:
+                note = " (restricted distribution; not transcribed)"
             yield f"- {name}{note}"
         yield ""
     for name, text in record.attachments.items():
@@ -301,6 +333,9 @@ class PheKBSource(StructuredSource):
                 first, full = pdf_text(data)
                 if is_journal_article(first):
                     record.skipped_articles.append(name)
+                    continue
+                if is_restricted(name, full):
+                    record.restricted.append(name)
                     continue
                 record.attachments[name] = clean_text(full)
         return record
