@@ -42,7 +42,13 @@ One entry types AGXT as causative,
 with the variants recorded as
 <span class="result" data-code="g.variant_origin('Primary Hyperoxaluria Type 1')">germline<span class="method"></span></span>.
 There the gene sits on the node
-<span class="result" data-code="g.node('Primary Hyperoxaluria Type 1', 'AGXT Alanine-Glyoxylate Aminotransferase Deficiency')">AGXT Alanine-Glyoxylate Aminotransferase Deficiency<span class="method"></span></span>.
+<span class="result" data-code="g.node('Primary Hyperoxaluria Type 1', 'AGXT Alanine-Glyoxylate Aminotransferase Deficiency')">AGXT Alanine-Glyoxylate Aminotransferase Deficiency<span class="method"></span></span>,
+which binds the transaminase activity as decreased. The node also records
+that not every allele inactivates the enzyme: the common p.Gly170Arg allele
+mislocalizes AGT to mitochondria, and it and p.Phe152Ile are the alleles
+associated with a pyridoxine response. The entry's pyridoxine treatment acts
+on this node; its lumasiran treatment instead silences HAO1 (glycolate
+oxidase) upstream, so the PH1 entry names HAO1 only as a drug target.
 
 ## Modifier record
 

@@ -24,7 +24,7 @@ disorder entry.
 ## Normal function
 
 ai-gene-review gives ALDH4A1's core molecular function as
-<span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">L-glutamate gamma-semialdehyde dehydrogenase activity<span class="method"></span></span>,
+<span class="result" data-compare="names" data-code="g.core_function_terms('molecular_function')">L-glutamate gamma-semialdehyde dehydrogenase (NAD+) activity<span class="method"></span></span>,
 acting in
 <span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">L-proline catabolic process; and trans-4-hydroxy-L-proline catabolic process<span class="method"></span></span>
 in the
@@ -39,7 +39,9 @@ and it records the variants as
 ClinGen rates the gene
 <span class="result" data-code="g.clingen('Hyperprolinemia Type 2')">definitive<span class="method"></span></span>
 for this disease. The gene sits on the node
-<span class="result" data-code="g.node('Hyperprolinemia Type 2', 'ALDH4A1 P5C Dehydrogenase Deficiency')">ALDH4A1 P5C Dehydrogenase Deficiency<span class="method"></span></span>.
+<span class="result" data-code="g.node('Hyperprolinemia Type 2', 'ALDH4A1 P5C Dehydrogenase Deficiency')">ALDH4A1 P5C Dehydrogenase Deficiency<span class="method"></span></span>,
+which binds the same P5C dehydrogenase activity (GO:0003842) as decreased,
+the second step of proline catabolism.
 
 ## Where the layers agree
 

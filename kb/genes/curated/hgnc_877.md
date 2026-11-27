@@ -47,4 +47,6 @@ ClinGen diseases with no matching dismech entry are
 <span class="result" data-compare="names" data-code="g.clingen_without_entry()">pyridoxine-dependent epilepsy<span class="method"></span></span>. The entry
 is anchored on the narrower MONDO term for the ALDH7A1-caused form, while
 ClinGen's assertion uses the broader pyridoxine-dependent epilepsy term, so the
-ClinGen tier is not copied onto the entry's genetic record.
+ClinGen tier is not copied onto the entry's genetic record. That broader class
+also contains the PLPBP disease, which dismech curates as a separate entry, and
+ClinGen classifies PLPBP against the same broad term.
