@@ -109771,7 +109771,10 @@ window.searchData = [
     "genes": [
       "MAB21L2"
     ],
-    "treatments": [],
+    "treatments": [
+      "Supportive Multidisciplinary Care",
+      "Genetic Counseling"
+    ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome.yaml",
@@ -109779,8 +109782,8 @@ window.searchData = [
     "num_phenotypes": 4,
     "num_pathophysiology": 4,
     "num_genes": 1,
-    "num_treatments": 0,
-    "causal_graph_edges": "10",
+    "num_treatments": 2,
+    "causal_graph_edges": "13",
     "causal_graph_longest_path": "4"
   },
   {
@@ -162407,7 +162410,6 @@ window.searchData = [
       "rhythmic synaptic transmission",
       "chemical synaptic transmission",
       "gamma-aminobutyric acid signaling pathway",
-      "G protein-coupled dopamine receptor signaling pathway",
       "nonsense-mediated decay of the mutant FUS transcript",
       "axon guidance",
       "myelination"
@@ -162467,8 +162469,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 8,
     "num_treatments": 6,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Estrogen Resistance Syndrome",
@@ -404739,7 +404741,10 @@ window.searchData = [
       "Trichuris anterior-end embedding in colonic mucosa",
       "Colonic mucosal mechanical and chemical injury",
       "Chronic intestinal blood loss",
-      "Ascaris worm intestinal obstruction"
+      "Ascaris worm intestinal obstruction",
+      "Nematode larval migration through the lungs",
+      "Strongyloides autoinfection cycle",
+      "Strongyloides hyperinfection and dissemination"
     ],
     "cell_types": [],
     "cell_type_ids": [],
@@ -404748,38 +404753,52 @@ window.searchData = [
       "Anemia",
       "Rectal Prolapse",
       "Growth delay",
-      "Intestinal obstruction"
+      "Intestinal obstruction",
+      "Eosinophilic pneumonia",
+      "Eosinophilia",
+      "Bacteremia"
     ],
     "phenotype_categories": [
       "Hematologic",
       "Gastrointestinal",
-      "Growth"
+      "Growth",
+      "Respiratory",
+      "Infectious"
     ],
     "phenotype_hpo_categories": [
       "Blood",
       "Digestive",
-      "Growth"
+      "Growth",
+      "Immune",
+      "Metabolism",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0001903",
       "HP:0002035",
       "HP:0001510",
-      "HP:0005214"
+      "HP:0005214",
+      "HP:0032071",
+      "HP:0001880",
+      "HP:0031864"
     ],
     "frequencies": [],
     "genes": [],
     "treatments": [
-      "Albendazole or mebendazole therapy"
+      "Albendazole or mebendazole therapy",
+      "Ivermectin therapy for strongyloidiasis"
     ],
-    "environmental": [],
+    "environmental": [
+      "Corticosteroid therapy in a Strongyloides-infected host"
+    ],
     "biochemical": [],
     "source_file": "Soil_Transmitted_Helminthiases.yaml",
     "page_url": "../pages/disorders/Soil-transmitted_helminthiases.html",
-    "num_phenotypes": 4,
-    "num_pathophysiology": 5,
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
     "num_genes": 0,
-    "num_treatments": 1,
-    "causal_graph_edges": "6",
+    "num_treatments": 2,
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "3"
   },
   {
@@ -459499,16 +459518,16 @@ window.searchMetrics = {
   "total_disorder_pages": 4220,
   "total_subtypes": 5182,
   "total_disorders_and_subtypes": 9402,
-  "total_unique_evidence_sources": 63349,
-  "total_unique_publications": 59173,
+  "total_unique_evidence_sources": 63358,
+  "total_unique_publications": 59181,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
   "total_pathographs": 4218,
-  "total_unique_pathological_events": 27939,
+  "total_unique_pathological_events": 27942,
   "total_modules": 242,
   "total_research_reports": 4324,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 156
+  "total_groupings": 158
 };
 window.dispatchEvent(new Event('searchDataReady'));
