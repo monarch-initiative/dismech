@@ -1,0 +1,1463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PBX1-Related Syndromic CAKUT · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PBX1-Related Syndromic CAKUT</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PBX1-Related Syndromic CAKUT</h1>
+                
+                <p class="report-subtitle">PBX1-Related Syndromic CAKUT (CAKUTHED): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-25</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0060549" target="_blank" rel="noopener noreferrer">MONDO:0060549</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">25 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>PBX1-Related Syndromic CAKUT (CAKUTHED): Disease Characteristics Report</h1>
+<p><strong>How this report was built.</strong> It covers <a href="http://purl.obolibrary.org/obo/MONDO_0060549" target="_blank" rel="noopener noreferrer">MONDO:0060549</a> / <a href="https://bioregistry.io/OMIM:617641" target="_blank" rel="noopener noreferrer">OMIM:617641</a>, the disorder caused by heterozygous loss-of-function variants or deletions of the <strong>PBX1</strong> gene (PBX homeobox 1, chromosome 1q23.3). It does not cover other CAKUT genes or other diseases with similar names. Bash and direct PubMed access were blocked in this session. The evidence comes from web searches and from Europe PMC and PMC abstract records fetched for this report. Quotes are verbatim but shortened to fragments of under about 125 characters because of copyright limits on the source pages. Any item marked <strong>[unverified]</strong> was not retrieved in this session and must be checked before use.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> CAKUTHED is short for "congenital anomalies of kidney and urinary tract syndrome with or without hearing loss, abnormal ears, or developmental delay". It is an autosomal dominant, highly pleiotropic developmental disorder caused by heterozygous PBX1 variants. MedGen describes it as having "variable kidney and urinary tract anomalies, sometimes leading to renal dysfunction, dysmorphic facial features, and outer ear abnormalities, often with hearing loss," with global developmental delay in most patients (<a href="https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/a3492137cada35c1427e5783c176e4344e6cbb56/www.ncbi.nlm.nih.gov/medgen/C4539968/index.html">MedGen C4539968 mirror</a>). Disease Ontology defines it as caused by heterozygous PBX1 mutation or by deletion of a genomic region that includes PBX1 (<a href="https://disease-ontology.org/term/DOID:0112359">DOID:0112359</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>ID</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0060549" target="_blank" rel="noopener noreferrer">MONDO:0060549</a></td>
+<td>retrieved</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>617641 (phenotype)</td>
+<td>retrieved</td>
+</tr>
+<tr>
+<td>UMLS / MedGen</td>
+<td>C4539968</td>
+<td>retrieved</td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0112359" target="_blank" rel="noopener noreferrer">DOID:0112359</a></td>
+<td>retrieved</td>
+</tr>
+<tr>
+<td>KEGG Disease</td>
+<td>H01867 (CAKUT, parent group)</td>
+<td>retrieved (<a href="https://www.kegg.jp/entry/H01867">KEGG</a>)</td>
+</tr>
+<tr>
+<td>LOVD</td>
+<td>disease 06021</td>
+<td>retrieved (<a href="https://databases.lovd.nl/shared/diseases/06021">LOVD</a>)</td>
+</tr>
+<tr>
+<td>Orphanet, ICD-11, MeSH</td>
+<td>—</td>
+<td>not retrieved; no disease-specific code confirmed. ICD-10 Q60–Q64 (congenital malformations of the urinary system) would apply only generically.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms.</strong> CAKUTHED; PBX1-related syndrome (<a href="https://pubmed.ncbi.nlm.nih.gov/32141698/">Arts 2020, PMID 32141698</a>); "PBX1 haploinsufficiency syndromic CAKUT" (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/">Le Tanno 2017, PMID 28270404</a>).</p>
+<p><strong>Source of the information.</strong> Everything here is aggregated from published case reports and case series (human clinical evidence) and from disease-level curation (OMIM, MedGen, DO). No EHR or registry data were found.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factors (genetic).</strong> The disorder is caused by monoallelic (heterozygous) loss of PBX1 function through any of these routes:</p>
+<ul>
+<li><strong>Microdeletions of 1q23.3q24.1.</strong> Le Tanno et al. studied eight patients and defined "a 276-kb minimal common region (MCR) that only overlaps with the PBX1 gene" (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>).</li>
+<li><strong>De novo truncating or missense variants.</strong> Heidet et al. reported "five de novo heterozygous loss of function mutations/deletions in the PBX homeobox 1 gene (PBX1)" (<a href="https://pubmed.ncbi.nlm.nih.gov/28566479/">PMID 28566479</a>). Slavotinek et al. reported eight patients with de novo deleterious variants (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/">PMID 29036646</a>).</li>
+</ul>
+<p><strong>Genetic risk factors</strong></p>
+<ul>
+<li><strong>Parental mosaicism.</strong> This matters for recurrence risk:</li>
+<li>Arts et al. found a father mosaic for p.(Arg107Trp) at VAF "in blood (10%) and sperm (20%)," with two affected children (<a href="https://pubmed.ncbi.nlm.nih.gov/32141698/" target="_blank" rel="noopener noreferrer">PMID 32141698</a>).</li>
+<li>Huang et al. found "a paternal mosaic PBX1 variant in blood at 11.54%" (<a href="https://pubmed.ncbi.nlm.nih.gov/39189629/">PMID 39189629</a>).</li>
+<li><strong>Familial transmission is rare.</strong> A paternally inherited 1q23.3 deletion that includes PBX1 was reported by Luo 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/36544198/" target="_blank" rel="noopener noreferrer">PMID 36544198</a>; title-level record only). A Chinese family with renal hypoplasia was reported by Chen 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/43075297/" target="_blank" rel="noopener noreferrer">PMID 43075297</a>; title only).</li>
+</ul>
+<p><strong>Environmental risk factors, protective factors, gene–environment interactions.</strong> None were found. No environmental, protective-allele, or GxE data exist for this disease. The template's sources (CTD, GWAS Catalog, PheGenI) were not searched because Bash was blocked. Since this is a monogenic disorder caused mostly by de novo variants, none would be expected.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p><strong>Cohort-level frequency data</strong></p>
+<ul>
+<li>Le Tanno: bilateral renal hypoplasia in 75% (6/8) of deletion carriers (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>).</li>
+<li>Petzold et al. reviewed the literature (HGMD 2021.4) and found 31 CAKUTHED patients. Extrarenal features were present in 27/31 (87%) and mosaicism in 2/31 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9217644">PMID 35756743</a>).</li>
+<li>Slavotinek: "All patients but one had developmental delays" (7/8). Clinical findings "were observed in all patients with varying expressivity and severity" (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>).</li>
+</ul>
+<p><strong>Phenotype table.</strong> All findings are congenital and non-progressive unless noted.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO</th>
+<th>Type / onset</th>
+<th>Frequency / evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Renal hypoplasia (often bilateral)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000089" target="_blank" rel="noopener noreferrer">HP:0000089</a> Renal hypoplasia</td>
+<td>Structural sign; congenital, often prenatal</td>
+<td>Most common (75% in deletion series; <a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>)</td>
+</tr>
+<tr>
+<td>Renal dysplasia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000110" target="_blank" rel="noopener noreferrer">HP:0000110</a></td>
+<td>Congenital</td>
+<td>Bilateral dysplastic kidneys (Riedhammer, <a href="https://pubmed.ncbi.nlm.nih.gov/29226118/">PMID 29226118</a>)</td>
+</tr>
+<tr>
+<td>Unilateral renal agenesis, horseshoe kidney</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000122" target="_blank" rel="noopener noreferrer">HP:0000122</a>; <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" rel="noopener noreferrer">HP:0000085</a></td>
+<td>Congenital</td>
+<td>Case-level; horseshoe kidney in Scolari 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/41300798/">PMID 41300798</a>)</td>
+</tr>
+<tr>
+<td>Vesicoureteral reflux / urinary tract anomalies</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" rel="noopener noreferrer">HP:0000076</a></td>
+<td>Congenital</td>
+<td>Part of the CAKUT spectrum (OMIM / MedGen); specific frequency not retrieved</td>
+</tr>
+<tr>
+<td>Progressive CKD, proteinuria, FSGS</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012622" target="_blank" rel="noopener noreferrer">HP:0012622</a>; <a href="http://purl.obolibrary.org/obo/HP_0000093" target="_blank" rel="noopener noreferrer">HP:0000093</a>; <a href="http://purl.obolibrary.org/obo/HP_0000097" target="_blank" rel="noopener noreferrer">HP:0000097</a></td>
+<td>Lab/clinical; childhood to adult; progressive</td>
+<td>Adult case with rising creatinine and proteinuria (<a href="https://pubmed.ncbi.nlm.nih.gov/41255624/">Han 2025, PMID 41255624</a>)</td>
+</tr>
+<tr>
+<td>Oligohydramnios</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001562" target="_blank" rel="noopener noreferrer">HP:0001562</a></td>
+<td>Prenatal</td>
+<td>Prenatal cases (Sun 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/30910156/" target="_blank" rel="noopener noreferrer">PMID 30910156</a> <strong>[unverified link]</strong>)</td>
+</tr>
+<tr>
+<td>Cryptorchidism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" rel="noopener noreferrer">HP:0000028</a></td>
+<td>Congenital</td>
+<td>Common; truncating variants are linked to "mostly cryptorchidism and deafness" (<a href="https://pubmed.ncbi.nlm.nih.gov/37006624/">Zou 2023, PMID 37006624</a>)</td>
+</tr>
+<tr>
+<td>Ambiguous genitalia; 46,XY DSD / sex reversal</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" rel="noopener noreferrer">HP:0000062</a>; <a href="http://purl.obolibrary.org/obo/HP_0000032" target="_blank" rel="noopener noreferrer">HP:0000032</a> (abnormality of male external genitalia)</td>
+<td>Congenital</td>
+<td>Slavotinek (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>); Arts "complete sex reversal (46,XY female)" (<a href="https://pubmed.ncbi.nlm.nih.gov/32141698/" target="_blank" rel="noopener noreferrer">PMID 32141698</a>); Tsai 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/41746858/">PMID 41746858</a>)</td>
+</tr>
+<tr>
+<td>Hearing impairment</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" rel="noopener noreferrer">HP:0000365</a></td>
+<td>Congenital / childhood</td>
+<td>Frequent (OMIM / MedGen; Zou 2023)</td>
+</tr>
+<tr>
+<td>Outer ear abnormalities</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000356" target="_blank" rel="noopener noreferrer">HP:0000356</a></td>
+<td>Congenital</td>
+<td>Frequent (MedGen)</td>
+</tr>
+<tr>
+<td>Facial dysmorphism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" rel="noopener noreferrer">HP:0001999</a></td>
+<td>Congenital</td>
+<td>Frequent (MedGen)</td>
+</tr>
+<tr>
+<td>Global developmental delay; intellectual disability</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>; <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Infancy / childhood; static</td>
+<td>7/8 (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>)</td>
+</tr>
+<tr>
+<td>Autism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000717" target="_blank" rel="noopener noreferrer">HP:0000717</a></td>
+<td>Behavioral; childhood</td>
+<td>LOVD single individual</td>
+</tr>
+<tr>
+<td>Congenital heart defects (TOF, VSD)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001636" target="_blank" rel="noopener noreferrer">HP:0001636</a>; <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" rel="noopener noreferrer">HP:0001629</a></td>
+<td>Congenital</td>
+<td>TOF with p.R184P (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7206850">Alankarage 2020, PMID 31625560</a>)</td>
+</tr>
+<tr>
+<td>Hypoplastic clavicles; coracoclavicular ankylosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000894" target="_blank" rel="noopener noreferrer">HP:0000894</a></td>
+<td>Skeletal; congenital</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/29226118/" target="_blank" rel="noopener noreferrer">PMID 29226118</a>; Iwai 2026, three homeobox missense cases "who did not have CAKUT" (<a href="https://pubmed.ncbi.nlm.nih.gov/41162587/">PMID 41162587</a>)</td>
+</tr>
+<tr>
+<td>Respiratory failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a></td>
+<td>Neonatal</td>
+<td>Iwai 2026 (<a href="https://pubmed.ncbi.nlm.nih.gov/41162587/" target="_blank" rel="noopener noreferrer">PMID 41162587</a>)</td>
+</tr>
+<tr>
+<td>Diaphragmatic eventration; microsplenia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009110" target="_blank" rel="noopener noreferrer">HP:0009110</a>; —</td>
+<td>Perinatal, lethal cases</td>
+<td>Arts 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/32141698/" target="_blank" rel="noopener noreferrer">PMID 32141698</a>)</td>
+</tr>
+<tr>
+<td>Congenital glaucoma; corneal clouding</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001087" target="_blank" rel="noopener noreferrer">HP:0001087</a>; <a href="http://purl.obolibrary.org/obo/HP_0007957" target="_blank" rel="noopener noreferrer">HP:0007957</a></td>
+<td>Infancy</td>
+<td>Safgren 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/34797033/">PMID 34797033</a>)</td>
+</tr>
+<tr>
+<td>Intrauterine growth retardation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001511" target="_blank" rel="noopener noreferrer">HP:0001511</a></td>
+<td>Prenatal</td>
+<td>Sun 2019 <strong>[unverified link]</strong></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Severity.</strong> Variable, ranging from perinatal lethality (recurrent neonatal death; PMIDs 32141698 and 39189629) to mild renal hypoplasia recognized only in adulthood (PMIDs 35756743 and 41255624).</p>
+<p><strong>Quality of life.</strong> No QoL instrument data (EQ-5D, SF-36) were found. The main expected burdens are CKD/ESKD, developmental disability, and hearing loss; this is inferred, not measured.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Gene.</strong> <em>PBX1</em>, PBX homeobox 1, at 1q23.3. Gene MIM 176310, <a href="https://bioregistry.io/HGNC:8632" target="_blank" rel="noopener noreferrer">HGNC:8632</a>, and NCBI Gene 5087 are <strong>[unverified]</strong>. Reference transcript NM_002585 (used in PMIDs 39189629 and 41300798). PBX1 is a TALE ("three-amino acid loop extension") homeodomain transcription factor (<a href="https://pubmed.ncbi.nlm.nih.gov/37006624/" target="_blank" rel="noopener noreferrer">PMID 37006624</a>).</p>
+<p><strong>Reported variants (all germline, heterozygous)</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Context</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1q23.3q24.1 deletions (276-kb MCR containing only PBX1)</td>
+<td>CNV / deletion</td>
+<td>8 syndromic CAKUT patients</td>
+<td>28270404</td>
+</tr>
+<tr>
+<td>c.413_419del, p.Gly138Valfs*40</td>
+<td>Frameshift, de novo</td>
+<td>Dysplastic kidneys, clavicles</td>
+<td>29226118</td>
+</tr>
+<tr>
+<td>c.400dupG, p.Ala134Glyfs*65</td>
+<td>Frameshift, de novo</td>
+<td>Glaucoma, kidney anomalies, developmental delay</td>
+<td>34797033</td>
+</tr>
+<tr>
+<td>c.277C&gt;T, p.Arg93Ter</td>
+<td>Nonsense, de novo; "flagged as escaping nonsense-mediated decay"</td>
+<td>Adult FSGS</td>
+<td>41255624</td>
+</tr>
+<tr>
+<td>c.992C&gt;A, p.(Ser331*)</td>
+<td>Nonsense, <strong>somatic mosaic</strong> (26% blood, 50% oral mucosa, 20% urinary cells)</td>
+<td>Mild syndromic renal hypoplasia</td>
+<td>35756743</td>
+</tr>
+<tr>
+<td>p.(Arg107Trp)</td>
+<td>Missense, paternal mosaic</td>
+<td>Recurrent perinatal death, 46,XY sex reversal</td>
+<td>32141698</td>
+</tr>
+<tr>
+<td>c.551G&gt;C, p.R184P</td>
+<td>Missense, de novo</td>
+<td>Tetralogy of Fallot</td>
+<td>31625560</td>
+</tr>
+<tr>
+<td>c.694G&gt;C, p.D232H</td>
+<td>Missense, paternal mosaic</td>
+<td>Recurrent neonatal death</td>
+<td>39189629</td>
+</tr>
+<tr>
+<td>c.710G&gt;C, p.R237T (nuclear localization sequence)</td>
+<td>Missense</td>
+<td>46,XY DSD</td>
+<td>41746858</td>
+</tr>
+<tr>
+<td>c.712C&gt;T, p.(Arg238Trp)</td>
+<td>Missense, de novo</td>
+<td>Horseshoe kidney</td>
+<td>41300798</td>
+</tr>
+<tr>
+<td>Homeobox C-terminal missense cluster</td>
+<td>Missense, de novo</td>
+<td>Coracoclavicular ankylosis, no CAKUT</td>
+<td>41162587</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Variant spectrum.</strong> In the HGMD-based review of 31 patients there were 5 nonsense/frameshift/splice variants, 4 missense variants, and 22 indels/CNVs (<a href="https://pubmed.ncbi.nlm.nih.gov/35756743/" target="_blank" rel="noopener noreferrer">PMID 35756743</a>). Zou 2023 reported that truncating variants cause milder phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/37006624/" target="_blank" rel="noopener noreferrer">PMID 37006624</a>).</p>
+<p><strong>Evidence status for the remaining template items</strong></p>
+<ul>
+<li><strong>ACMG classification and allele frequency.</strong> ClinVar and gnomAD were not queried in this session. All reported variants were absent from controls or de novo, as described in the source papers.</li>
+<li><strong>Functional consequence.</strong> Mostly <strong>loss of function / haploinsufficiency</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>). Missense variants act through two mechanisms:</li>
+<li>reduced protein: "amounts of PBX1 protein are significantly decreased" (p.R184P; <a href="https://pubmed.ncbi.nlm.nih.gov/31625560/" target="_blank" rel="noopener noreferrer">PMID 31625560</a>);</li>
+<li>impaired nuclear localization: p.R238W did "not affect protein expression" but variants increased "retention in the cytoplasm" (<a href="https://pubmed.ncbi.nlm.nih.gov/41300798/" target="_blank" rel="noopener noreferrer">PMID 41300798</a>), and p.R237T "reduced protein stability and hampered nuclear translocation" (<a href="https://pubmed.ncbi.nlm.nih.gov/41746858/" target="_blank" rel="noopener noreferrer">PMID 41746858</a>).</li>
+<li>Slavotinek found "perturbation of intrinsic, PBX-dependent transactivation ability" (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>).</li>
+<li>The genotype–phenotype differences hint that some missense variants could act through dominant-negative or altered-function mechanisms, but this is not proven.</li>
+<li><strong>Modifier genes.</strong> None reported.</li>
+<li><strong>Epigenetics.</strong> No data.</li>
+<li><strong>Chromosomal abnormalities.</strong> 1q23.3 microdeletions (PMIDs 28270404, 30910156 <strong>[unverified]</strong>, 36544198). In DECIPHER terms these are PBX1-containing CNVs. The DECIPHER database itself was not queried in this session.</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<p>Not applicable. No environmental, lifestyle, or infectious contributors have been reported.</p>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain</strong></p>
+<ol>
+<li>A heterozygous PBX1 deletion, truncating variant, or deleterious missense variant (germline de novo, inherited, or mosaic) <strong>leads to</strong> reduced functional PBX1 protein (haploinsufficiency). This is demonstrated in humans by deletions and truncating variants (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>) and for missense variants in vitro (PMIDs 31625560, 41746858).</li>
+<li><strong>Branch A:</strong> a missense variant in the NLS or homeodomain <strong>results in</strong> cytoplasmic retention or reduced stability (in vitro; PMIDs 41300798, 41746858).</li>
+<li><strong>Branch B:</strong> a truncating variant <strong>results in</strong> NMD or a truncated protein (PMIDs 34797033, 41255624).</li>
+<li>Reduced nuclear PBX1 <strong>results in</strong> impaired PBX-dependent transcriptional activation together with HOX and other partners (in vitro; <a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>; review <a href="https://pubmed.ncbi.nlm.nih.gov/37006624/" target="_blank" rel="noopener noreferrer">PMID 37006624</a>).</li>
+<li>Impaired PBX1/HOX transcriptional programs in metanephric mesenchyme/stroma <strong>lead to</strong> abnormal mesenchymal proliferation and signaling. This is inferred from the mouse model and review (PMIDs 12591246, 37006624).</li>
+<li>Defective mesenchyme–ureteric bud crosstalk <strong>results in</strong> reduced ureteric branching and fewer nephrons. Pbx1⁻/⁻ mice show "decreased branching and elongation of the ureter" and "kidneys contained fewer nephrons" (mouse; <a href="https://pubmed.ncbi.nlm.nih.gov/12591246/" target="_blank" rel="noopener noreferrer">PMID 12591246</a>).</li>
+<li>Reduced nephron endowment <strong>leads to</strong> renal hypoplasia or dysplasia, agenesis, or mispositioning (mouse, human; PMIDs 12591246, 28270404). From there the course branches:</li>
+<li>Congenital low nephron mass <strong>leads to</strong> hyperfiltration, proteinuria, FSGS, and progressive CKD/ESKD. This is inferred, supported by an adult FSGS case (<a href="https://pubmed.ncbi.nlm.nih.gov/41255624/" target="_blank" rel="noopener noreferrer">PMID 41255624</a>).</li>
+<li>Prenatally, it <strong>leads to</strong> oligohydramnios (case-level).</li>
+<li>A parallel branch runs through urogenital ridge, adrenal, and gonad development. Loss of Pbx1 "markedly reduces urogenital ridge outgrowth," which <strong>results in</strong> absent adrenals and gonads with "rudimentary sexual differentiation" in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/14595835/" target="_blank" rel="noopener noreferrer">PMID 14595835</a>). In humans this corresponds to cryptorchidism and 46,XY DSD (PMIDs 32141698, 41746858).</li>
+<li>A further parallel branch runs through cardiac outflow tract, branchial arch/ear, skeletal (clavicle/scapula), and diaphragm/spleen development. These <strong>lead to</strong> CHD, ear anomalies and hearing loss, clavicular defects, and diaphragmatic eventration. Evidence: knock-in mouse VSDs (<a href="https://pubmed.ncbi.nlm.nih.gov/31625560/" target="_blank" rel="noopener noreferrer">PMID 31625560</a>) and human case reports. The ear and skeletal mechanism is inferred.</li>
+<li>A neurodevelopmental branch <strong>results in</strong> DD/ID. The mechanism is not established.</li>
+</ol>
+<p><strong>Detail</strong></p>
+<ul>
+<li><strong>Pathways.</strong> HOX–PBX–MEIS TALE transcription factor complexes (review; <a href="https://pubmed.ncbi.nlm.nih.gov/37006624/" target="_blank" rel="noopener noreferrer">PMID 37006624</a>). Tsai 2026 found that targets including "MAP3K4, EMX2, KISS1R, and HOXA13" were dysregulated in p.R237T cells (<a href="https://pubmed.ncbi.nlm.nih.gov/41746858/" target="_blank" rel="noopener noreferrer">PMID 41746858</a>). Variant-expressing cells showed decreased proliferation.</li>
+<li><strong>Cellular processes.</strong> In mice, cell proliferation was decreased in Pbx1⁻/⁻ genital ridges (<a href="https://pubmed.ncbi.nlm.nih.gov/14595835/" target="_blank" rel="noopener noreferrer">PMID 14595835</a>).</li>
+<li><strong>Suggested GO terms:</strong> <a href="http://purl.obolibrary.org/obo/GO_0001822" target="_blank" rel="noopener noreferrer">GO:0001822</a> kidney development; <a href="http://purl.obolibrary.org/obo/GO_0001658" target="_blank" rel="noopener noreferrer">GO:0001658</a> branching involved in ureteric bud morphogenesis; <a href="http://purl.obolibrary.org/obo/GO_0072006" target="_blank" rel="noopener noreferrer">GO:0072006</a> nephron development; <a href="http://purl.obolibrary.org/obo/GO_0008584" target="_blank" rel="noopener noreferrer">GO:0008584</a> male gonad development; <a href="http://purl.obolibrary.org/obo/GO_0030325" target="_blank" rel="noopener noreferrer">GO:0030325</a> adrenal gland development; <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" rel="noopener noreferrer">GO:0006357</a> regulation of transcription by RNA polymerase II; <a href="http://purl.obolibrary.org/obo/GO_0008283" target="_blank" rel="noopener noreferrer">GO:0008283</a> cell population proliferation.</li>
+<li><strong>Suggested CL terms:</strong> metanephric mesenchyme / stromal cell (<a href="http://purl.obolibrary.org/obo/CL_1000692" target="_blank" rel="noopener noreferrer">CL:1000692</a> kidney interstitial fibroblast <strong>[verify]</strong>); ureteric bud cell (<a href="http://purl.obolibrary.org/obo/CL_1000090" target="_blank" rel="noopener noreferrer">CL:1000090</a> <strong>[verify]</strong>); Sertoli cell <a href="http://purl.obolibrary.org/obo/CL_0000216" target="_blank" rel="noopener noreferrer">CL:0000216</a>; adrenal cortical cell <a href="http://purl.obolibrary.org/obo/CL_0000417" target="_blank" rel="noopener noreferrer">CL:0000417</a>.</li>
+<li><strong>Not applicable or no data:</strong> metabolic changes, immune involvement, omics profiling, single-cell studies.</li>
+</ul>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), ureter (<a href="http://purl.obolibrary.org/obo/UBERON_0000056" target="_blank" rel="noopener noreferrer">UBERON:0000056</a>), urinary bladder (<a href="http://purl.obolibrary.org/obo/UBERON_0001255" target="_blank" rel="noopener noreferrer">UBERON:0001255</a>).</li>
+<li><strong>Other organs and systems:</strong> gonad/testis (<a href="http://purl.obolibrary.org/obo/UBERON_0000991" target="_blank" rel="noopener noreferrer">UBERON:0000991</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a>), external genitalia (<a href="http://purl.obolibrary.org/obo/UBERON_0004176" target="_blank" rel="noopener noreferrer">UBERON:0004176</a>), external ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001691" target="_blank" rel="noopener noreferrer">UBERON:0001691</a>), inner ear (<a href="http://purl.obolibrary.org/obo/UBERON_0001846" target="_blank" rel="noopener noreferrer">UBERON:0001846</a>), heart (<a href="http://purl.obolibrary.org/obo/UBERON_0000948" target="_blank" rel="noopener noreferrer">UBERON:0000948</a>), clavicle (<a href="http://purl.obolibrary.org/obo/UBERON_0001105" target="_blank" rel="noopener noreferrer">UBERON:0001105</a>), diaphragm (<a href="http://purl.obolibrary.org/obo/UBERON_0001103" target="_blank" rel="noopener noreferrer">UBERON:0001103</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), eye/anterior segment (glaucoma), brain (DD/ID), and adrenal (mouse only).</li>
+<li><strong>Subcellular:</strong> nucleus (<a href="http://purl.obolibrary.org/obo/GO_0005634" target="_blank" rel="noopener noreferrer">GO:0005634</a>). Missense variants cause mislocalization to cytoplasm (<a href="http://purl.obolibrary.org/obo/GO_0005737" target="_blank" rel="noopener noreferrer">GO:0005737</a>) (PMIDs 41300798, 41746858).</li>
+<li><strong>Lateralization:</strong> renal hypoplasia is mostly <strong>bilateral</strong> (75%; <a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>). Unilateral agenesis occurs in mice (<a href="https://pubmed.ncbi.nlm.nih.gov/12591246/" target="_blank" rel="noopener noreferrer">PMID 12591246</a>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> congenital. Often detected <strong>prenatally</strong> through renal anomalies, oligohydramnios, or IUGR (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>; Le Tanno recommends CMA "in cases of fetal renal anomalies").</li>
+<li><strong>Course:</strong></li>
+<li>The structural anomalies are static.</li>
+<li>Renal function may decline slowly, and ESKD in adulthood has been reported (<a href="https://pubmed.ncbi.nlm.nih.gov/41255624/" target="_blank" rel="noopener noreferrer">PMID 41255624</a>). Genomics England PanelApp lists PBX1 in its "Unexplained young onset end-stage renal disease" panel (<a href="https://panelapp.genomicsengland.co.uk/panels/678/gene/PBX1/">PanelApp</a>).</li>
+<li>Mild cases can present in adulthood (<a href="https://pubmed.ncbi.nlm.nih.gov/35756743/" target="_blank" rel="noopener noreferrer">PMID 35756743</a>, at age 20; <a href="https://pubmed.ncbi.nlm.nih.gov/41255624/" target="_blank" rel="noopener noreferrer">PMID 41255624</a>, at age 28).</li>
+<li><strong>Critical period:</strong> embryonic organogenesis (nephrogenesis, gonadal differentiation).</li>
+<li><strong>Remission:</strong> none expected.</li>
+<li><strong>Staging:</strong> no disease-specific stages. CKD stages (KDIGO) apply.</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal dominant (OMIM; LOVD). Most cases are <strong>de novo</strong>; parental germline/somatic mosaicism is documented (PMIDs 32141698, 39189629).</li>
+<li><strong>Penetrance:</strong> apparently high in heterozygotes, but mosaic carriers can be unaffected or mildly affected.</li>
+<li><strong>Expressivity:</strong> markedly variable (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>).</li>
+<li><strong>Not applicable:</strong> anticipation, founder effects, consanguinity, carrier frequency.</li>
+<li><strong>Prevalence:</strong> unknown. It is ultra-rare: 31 patients in the literature by 2021 (<a href="https://pubmed.ncbi.nlm.nih.gov/35756743/" target="_blank" rel="noopener noreferrer">PMID 35756743</a>). In a CAKUT cohort, Heidet found causal mutations in 36/204 (17.6%) patients overall, five of them in PBX1 (about 2.5% of the cohort) (<a href="https://pubmed.ncbi.nlm.nih.gov/28566479/" target="_blank" rel="noopener noreferrer">PMID 28566479</a>).</li>
+<li><strong>Demographics:</strong> reported in European, Australian, US, Japanese, Chinese, and Korean patients. There is no ethnic predilection.</li>
+<li><strong>Sex ratio:</strong> the genital phenotype is ascertained more readily in 46,XY individuals; there is no formal sex ratio.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Imaging:</strong> prenatal and postnatal renal ultrasound (hypoplasia, dysplasia, horseshoe kidney); VCUG for reflux; echocardiography; audiology.</li>
+<li><strong>Laboratory:</strong> serum creatinine/eGFR, urine protein (<a href="https://pubmed.ncbi.nlm.nih.gov/41255624/" target="_blank" rel="noopener noreferrer">PMID 41255624</a>); karyotype and hormonal evaluation in DSD.</li>
+<li><strong>Genetic testing</strong></li>
+<li><strong>Chromosomal microarray</strong> for deletions. Le Tanno: "CMA should be recommended in cases of fetal renal anomalies" (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>).</li>
+<li><strong>Exome or genome sequencing</strong>, ideally as a trio, for sequence variants (PMIDs 29226118, 32141698, 39189629).</li>
+<li><strong>CAKUT gene panels:</strong> PBX1 is included in the Genomics England and PanelApp Australia CAKUT panels (<a href="https://panelapp-aus.org/panels/63/gene/PBX1/">PanelApp AUS</a>; <a href="https://panelapp.genomicsengland.co.uk/panels/234/gene/PBX1/">GE PanelApp</a>).</li>
+<li><strong>Mosaicism testing:</strong> consider testing multiple tissues and using deep sequencing. Petzold: "we suggest ruling out somatic mosaicism in sporadic CAKUT" (<a href="https://pubmed.ncbi.nlm.nih.gov/35756743/" target="_blank" rel="noopener noreferrer">PMID 35756743</a>).</li>
+<li>Parental testing, including for low-level mosaicism, is essential for recurrence counseling.</li>
+<li><strong>Clinical criteria:</strong> none established.</li>
+<li><strong>Differential diagnosis:</strong> other syndromic CAKUT disorders, distinguished by genotype:</li>
+<li>HNF1B-related disease (renal cysts, diabetes);</li>
+<li>PAX2-related papillorenal syndrome (optic nerve coloboma);</li>
+<li>EYA1/SIX1 branchio-oto-renal syndrome (branchial fistulae, hearing loss — the closest phenotypic overlap);</li>
+<li>22q11.2 deletion;</li>
+<li>other DSD genes such as NR5A1 and WT1.</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival:</strong> bimodal.</li>
+<li>Perinatal lethality occurs in severe cases (recurrent neonatal death or stillbirth; PMIDs 32141698, 39189629). Prenatal series also included pregnancy terminations (<a href="https://pubmed.ncbi.nlm.nih.gov/39189629/" target="_blank" rel="noopener noreferrer">PMID 39189629</a>: "pregnancy termination at 17 weeks gestation").</li>
+<li>Survival into adulthood occurs in milder cases.</li>
+<li><strong>Data gaps:</strong> no survival statistics, life-expectancy data, or QoL measures were found.</li>
+<li><strong>Morbidity:</strong> CKD progressing to ESKD; developmental and intellectual disability; hearing loss; DSD-related issues (gonadal dysgenesis, infertility, inferred).</li>
+<li><strong>Prognostic factors</strong> (tentative):</li>
+<li>severity of bilateral renal hypoplasia and presence of oligohydramnios;</li>
+<li>truncating variants associated with milder phenotypes (<a href="https://pubmed.ncbi.nlm.nih.gov/37006624/" target="_blank" rel="noopener noreferrer">PMID 37006624</a>);</li>
+<li>mosaicism with milder disease (<a href="https://pubmed.ncbi.nlm.nih.gov/35756743/" target="_blank" rel="noopener noreferrer">PMID 35756743</a>).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>No disease-specific, gene-targeted, or experimental therapies exist. No clinical trials were found; ClinicalTrials.gov was not directly searched. Management is supportive and follows CKD and CAKUT standards of care (inferred general practice, not PBX1-specific evidence):</p>
+<ul>
+<li><strong>CKD management:</strong> RAAS blockade for proteinuria (NCIT: Angiotensin-Converting Enzyme Inhibitor; Angiotensin II Receptor Antagonist), anemia and mineral-bone management, growth support. Dialysis (NCIT: Dialysis) and kidney transplantation (NCIT: Kidney Transplantation) for ESKD.</li>
+<li><strong>Urology:</strong> orchidopexy for cryptorchidism (NCIT: Orchiopexy), DSD multidisciplinary care, antibiotic prophylaxis for VUR when indicated.</li>
+<li><strong>Other:</strong> cardiac surgery for CHD (e.g., TOF repair), hearing aids or cochlear implants, developmental, speech, physical, and occupational therapies, and glaucoma surgery (<a href="https://pubmed.ncbi.nlm.nih.gov/34797033/" target="_blank" rel="noopener noreferrer">PMID 34797033</a>).</li>
+<li><strong>Not applicable:</strong> pharmacogenomics.</li>
+</ul>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> not applicable.</li>
+<li><strong>Genetic counseling:</strong></li>
+<li>De novo cases carry a low but non-zero recurrence risk because of parental gonadal mosaicism, which is documented twice (PMIDs 32141698, 39189629).</li>
+<li>An affected individual has a 50% risk of transmission.</li>
+<li><strong>Prenatal and preimplantation options:</strong></li>
+<li>CMA or exome sequencing for fetal renal anomalies (<a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID 28270404</a>).</li>
+<li>Targeted prenatal or preimplantation testing once a familial or mosaic variant is known.</li>
+<li><strong>Tertiary prevention:</strong> monitoring renal function and blood pressure, and screening for hearing loss, cardiac defects, and genital and eye anomalies.</li>
+<li><strong>Not applicable:</strong> vaccination and public-health measures.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Naturally occurring disease:</strong> no PBX1-related disease in animals was found. OMIA was not searched in this session.</li>
+<li><strong>Orthologs:</strong> mouse <em>Pbx1</em> (<a href="https://bioregistry.io/MGI:97495" target="_blank" rel="noopener noreferrer">MGI:97495</a> <strong>[unverified]</strong>) and zebrafish <em>pbx1a</em>/<em>pbx1b</em> <strong>[unverified]</strong>.</li>
+<li><strong>Conservation:</strong> the mouse kidney, gonad, adrenal, and cardiac phenotypes parallel human disease (PMIDs 12591246, 14595835, 31625560). Slavotinek noted "Clinical findings similar to those in Pbx mutant mice" (<a href="https://pubmed.ncbi.nlm.nih.gov/29036646/" target="_blank" rel="noopener noreferrer">PMID 29036646</a>).</li>
+<li><strong>Zoonotic potential:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Phenotype</th>
+<th>Recapitulation</th>
+<th>PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pbx1⁻/⁻ mouse (constitutive KO; Mus musculus, NCBITaxon:10090)</td>
+<td>Kidneys "reduced in size, axially mispositioned," with unilateral agenesis in severe cases; fewer nephrons; reduced ureteric branching</td>
+<td>Good for renal hypoplasia and agenesis. Limitation: homozygous embryonic lethality, whereas the human disease is heterozygous.</td>
+<td>12591246</td>
+</tr>
+<tr>
+<td>Pbx1⁻/⁻ mouse (urogenital)</td>
+<td>"complete lack of adrenal glands"; gonads with "rudimentary sexual differentiation"; reduced urogenital ridge outgrowth</td>
+<td>Models DSD and cryptorchidism. Adrenal agenesis has not been reported in humans.</td>
+<td>14595835</td>
+</tr>
+<tr>
+<td>Pbx1 p.R184P knock-in mouse</td>
+<td>Homozygotes not born alive; heterozygotes with 45% perinatal death and VSDs in 75% at E13.5</td>
+<td>Heterozygous model for CHD and perinatal lethality. "developmental anomalies in a proportion of heterozygous embryos."</td>
+<td>31625560</td>
+</tr>
+<tr>
+<td>Tet-inducible cell lines (p.R237T, p.R238W)</td>
+<td>Cytoplasmic retention, reduced stability, decreased proliferation</td>
+<td>In vitro functional validation</td>
+<td>41746858, 41300798</td>
+</tr>
+<tr>
+<td>Pbx1b expression mapping (mouse)</td>
+<td>Expression during organogenesis</td>
+<td>Developmental atlas</td>
+<td>11118899 (title-level)</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitations:</strong> human haploinsufficiency is not fully modeled by heterozygous null mice. In particular, heterozygous Pbx1⁺/⁻ renal phenotypes were not retrieved in this session. There are no iPSC or kidney-organoid models yet.</p>
+<p><strong>Resources:</strong> MGI, IMPC, and MMRRC were not queried in this session.</p>
+<hr />
+<h3>Key Sources</h3>
+<ul>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28270404/">Le Tanno et al. 2017, J Med Genet, PMID 28270404</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/28566479/">Heidet et al. 2017, JASN, PMID 28566479</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/29036646/">Slavotinek et al. 2017, Hum Mol Genet, PMID 29036646</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/29226118/">Riedhammer 2017, PMID 29226118</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7206850">Alankarage 2020, PMID 31625560</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/32141698/">Arts 2020, PMID 32141698</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/34797033/">Safgren 2022, PMID 34797033</a> · <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9217644">Petzold 2022, PMID 35756743</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/37006624/">Zou 2023 review, PMID 37006624</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/39189629/">Huang 2024, PMID 39189629</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/41255624/">Han 2025, PMID 41255624</a> · <a href="https://www.mdpi.com/2073-4425/16/11/1346">Scolari 2025, PMID 41300798</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/41162587/">Iwai 2026, PMID 41162587</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/41746858/">Tsai 2026, PMID 41746858</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/12591246/">Schnabel 2003 Dev Biol, PMID 12591246</a> · <a href="https://pubmed.ncbi.nlm.nih.gov/14595835/">Schnabel 2003 Genesis, PMID 14595835</a></li>
+<li><a href="https://informatics.jax.org/disease/OMIM:617641">MGI OMIM:617641</a> · <a href="https://git.lsit.ucsb.edu/publicdata/nih-gov/raw/commit/a3492137cada35c1427e5783c176e4344e6cbb56/www.ncbi.nlm.nih.gov/medgen/C4539968/index.html">MedGen C4539968</a> · <a href="https://disease-ontology.org/term/DOID:0112359">DOID:0112359</a> · <a href="https://www.kegg.jp/entry/H01867">KEGG H01867</a> · <a href="https://databases.lovd.nl/shared/diseases/06021">LOVD</a> · <a href="https://panelapp-aus.org/panels/63/gene/PBX1/">PanelApp AUS</a> · <a href="https://panelapp.genomicsengland.co.uk/panels/234/gene/PBX1/">Genomics England PanelApp CAKUT</a> · <a href="https://panelapp.genomicsengland.co.uk/panels/678/gene/PBX1/">Genomics England PanelApp young-onset ESRD</a></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>15</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>21</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>18</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:28270404</code> <em>(abstract only)</em>: "PBX1 haploinsufficiency syndromic CAKUT"</li>
+<li>Text part not found as substring: 'PBX1 haploinsufficiency syndromic CAKUT' (note: only abstract available for <a href="https://pubmed.ncbi.nlm.nih.gov/28270404/" target="_blank" rel="noopener noreferrer">PMID:28270404</a>, full text may contain this excerpt)</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>57</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>33</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>12</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>3</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0060549</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>congenital anomalies of kidney and urinary tract syndrome with or without hearing loss, abnormal ears, or developmental delay</strong></li>
+<li><code>DOID:0112359</code> (6 mentions) - the report calls it "Disease Ontology"; DOID calls it <strong>congenital anomalies of kidney and urinary tract syndrome with or without hearing loss, abnormal ears, or developmental delay</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0000076</code> (1 mention) - the report calls it "Vesicoureteral reflux / urinary tract anomalies"; HP calls it <strong>Vesicoureteral reflux</strong></li>
+<li><code>HP:0000356</code> (1 mention) - the report calls it "Outer ear abnormalities"; HP calls it <strong>Abnormality of the outer ear</strong>, and lists "Outer ear abnormality" among its other names</li>
+<li><code>GO:0005634</code> (1 mention) - the report calls it "Subcellular:<strong> nucleus"; GO calls it </strong>nucleus**, and lists "cell nucleus" among its other names</li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>21 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>HP:0000093</code> (1 mention)</li>
+<li><code>HP:0000097</code> (1 mention)</li>
+<li><code>HP:0001562</code> (1 mention)</li>
+<li><code>HP:0001629</code> (1 mention)</li>
+<li><code>HP:0000894</code> (1 mention)</li>
+<li><code>HP:0001087</code> (1 mention)</li>
+<li><code>GO:0008584</code> (1 mention)</li>
+<li><code>GO:0030325</code> (1 mention)</li>
+<li><code>GO:0008283</code> (1 mention)</li>
+<li><code>CL:1000090</code> (1 mention)</li>
+<li><code>CL:0000216</code> (1 mention)</li>
+<li><code>UBERON:0002113</code> (1 mention)</li>
+<li><code>UBERON:0000056</code> (1 mention)</li>
+<li><code>UBERON:0001255</code> (1 mention)</li>
+<li><code>UBERON:0000991</code> (1 mention)</li>
+<li><code>UBERON:0001846</code> (1 mention)</li>
+<li><code>UBERON:0001105</code> (1 mention)</li>
+<li><code>UBERON:0001103</code> (1 mention)</li>
+<li><code>UBERON:0002106</code> (1 mention)</li>
+<li><code>GO:0005737</code> (1 mention)</li>
+<li><code>NCBITaxon:10090</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>10 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>HP:0000085</code> (1 mention)</li>
+<li><code>HP:0012622</code> (1 mention)</li>
+<li><code>HP:0000717</code> (1 mention)</li>
+<li><code>HP:0001636</code> (1 mention)</li>
+<li><code>HP:0007957</code> (1 mention)</li>
+<li><code>GO:0001658</code> (1 mention)</li>
+<li><code>CL:0000417</code> (1 mention)</li>
+<li><code>UBERON:0004176</code> (1 mention)</li>
+<li><code>UBERON:0000948</code> (1 mention)</li>
+<li><code>GO:0005634</code> (1 mention)</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>, <code>MGI</code>.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PBRM1-Related_BAFopathy-claude_code.html">← PBRM1-Related BAFopathy (Claude Code)</a>
+                
+                
+                <a href="PCDH19_Clustering_Epilepsy-claude_code.html">PCDH19 Clustering Epilepsy (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PBX1-Related_Syndromic_CAKUT.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PBX1-Related_Syndromic_CAKUT-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
