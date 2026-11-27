@@ -36,6 +36,7 @@ prefixes:
   UBERON: http://purl.obolibrary.org/obo/UBERON_
   CL: http://purl.obolibrary.org/obo/CL_
   MONDO: http://purl.obolibrary.org/obo/MONDO_
+  OMIMPS: https://omim.org/phenotypicSeries/PS
   ICD10CM: http://purl.obolibrary.org/obo/ICD10CM_
   icd11f: http://purl.obolibrary.org/obo/icd11f_
   NCIT: http://purl.obolibrary.org/obo/NCIT_
@@ -320,6 +321,38 @@ enums:
         description: Case definition for surveillance or reporting
       OTHER:
         description: Other definition type
+  CriteriaSetLogicEnum:
+    description: How the criteria sets of a definition combine.
+    permissible_values:
+      ALL_OF:
+        description: A case must satisfy every criteria set (conjunction).
+      ANY_OF:
+        description: Satisfying any one criteria set suffices (disjunction).
+  CodeSystemEnum:
+    description: >-
+      Clinical code systems a CodeList can draw from. The value is also the
+      CURIE prefix of each code (`ICD10:D57.0`, `SNOMEDCT:127040003`).
+    permissible_values:
+      ICD9CM:
+        description: ICD-9-CM (US clinical modification of ICD-9)
+      ICD10:
+        description: >-
+          WHO ICD-10, as used in UK Hospital Episode Statistics. Not ICD-10-CM:
+          the same code can carry a different label in each.
+      ICD10CM:
+        description: ICD-10-CM (US clinical modification of ICD-10)
+      SNOMEDCT:
+        description: SNOMED CT concept identifiers
+      READ2:
+        description: Read codes version 2 (UK primary care, 5-byte)
+      CTV3:
+        description: Read codes version 3 / Clinical Terms Version 3
+      OPCS4:
+        description: OPCS-4 procedure codes (UK)
+      LOINC:
+        description: LOINC observation codes
+      RXNORM:
+        description: RxNorm drug concepts
   DefinitionDerivationBasisEnum:
     description: >-
       The epistemic grounding of a definition / phenotype algorithm, orthogonal
@@ -1529,6 +1562,11 @@ enums:
     comments:
       - Uses HGNC gene nomenclature committee identifiers
       - Validation requires exact label match with HGNC database
+  OMIMPSTerm:
+    description: >-
+      An OMIM phenotypic series. Validates identifier existence and the canonical
+      label through the OMIM OAK adapter, without a disease-hierarchy constraint.
+      A series may describe a Mendelian disease family or susceptibility loci.
   LoincTerm:
     description: >-
       A LOINC code for a clinical measurement, panel, or LOINC Part. No
@@ -1994,6 +2032,12 @@ enums:
         aliases:
           - Puerpural onset
         meaning: HP:4000040
+      PERIMENOPAUSAL:
+        description: Perimenopausal onset
+        meaning: HP:6000314
+      POSTMENOPAUSAL:
+        description: Postmenopausal onset
+        meaning: HP:6000315
   ZygosityEnum:
     description: Zygosity categories from GENO
     permissible_values:
@@ -2231,9 +2275,10 @@ enums:
       to establish which kinds are shared -- see
       docs/superpowers/specs/2026-09-02-model-divergence-taxonomy.md. A single
       link usually carries more than one, which is why `divergences` is
-      multivalued. The set is deliberately computational-model-first; extending
-      it to animal models would add supraphysiological expression and incomplete
-      phenotype, each already evidenced in that set.
+      multivalued. The set was deliberately computational-model-first;
+      INCOMPLETE_PHENOTYPE was added when the animal set it was predicted from
+      became the dominant population (#11743). SUPRAPHYSIOLOGICAL_EXPRESSION
+      remains the other predicted addition and has not been added.
     see_also:
       - PMID:32993675
     permissible_values:
@@ -2299,7 +2344,27 @@ enums:
         description: >-
           The model, or the data behind it, derives from a non-human system.
           Marginal among computational models and dominant among animal models,
-          where it is the principal translational caveat.
+          where it is the principal translational caveat. Use it when the
+          organism structurally cannot express the node -- a mouse has no IgG4
+          subclass, Drosophila has no thalamus. Contrast INCOMPLETE_PHENOTYPE,
+          where the organism could express it and the model does not.
+      INCOMPLETE_PHENOTYPE:
+        title: Incomplete phenotype
+        description: >-
+          The model reproduces part of the disease phenotype and not the rest,
+          and nothing about the organism explains the missing part. A mouse can
+          have seizures; a model that does not show them is incomplete rather
+          than species-mismatched. It also covers a feature the model's reports
+          are simply silent on, which is the commoner case: "not shown" and "not
+          looked for" are rarely separable from a publication, and both leave the
+          phenotype incomplete. The distinction from SPECIES_MISMATCH carries a
+          consequence for a reader deciding what the model is worth: a
+          species-structural gap will never close in that organism, while an
+          incomplete phenotype may be a matter of background strain, age at
+          assay, penetrance, or an assay nobody ran. Both can
+          apply to one model for different features, which is why `divergences`
+          is multivalued -- record each against the feature it concerns rather
+          than choosing between them.
       POPULATION_MISMATCH:
         title: Population mismatch
         description: >-
@@ -2391,12 +2456,23 @@ enums:
         description: File modification
 
   ClinicalTrialPhaseEnum:
-    description: Clinical trial phase categories per FDA/NIH standards
+    description: >-
+      Clinical trial phase categories per FDA/NIH standards, plus the
+      combined-phase designs ClinicalTrials.gov registers in its own
+      vocabulary. A combined-phase trial takes the combined value rather than
+      either component: rounding it to one phase makes a query for "phase III
+      trials in X" include some phase 2/3 trials and silently exclude others.
     permissible_values:
+      EARLY_PHASE_I:
+        description: Early Phase I - exploratory first-in-human or pharmacodynamic study (ClinicalTrials.gov EARLY_PHASE1, formerly Phase 0)
       PHASE_I:
         description: Phase I - Initial safety and dosage assessment in small group (20-100 participants)
+      PHASE_I_II:
+        description: Combined Phase I/II design, registered by ClinicalTrials.gov as PHASE1|PHASE2
       PHASE_II:
         description: Phase II - Efficacy and side effects assessment in larger group (100-500 participants)
+      PHASE_II_III:
+        description: Combined Phase II/III design, registered by ClinicalTrials.gov as PHASE2|PHASE3
       PHASE_III:
         description: Phase III - Efficacy confirmation and monitoring in large population (1000-5000 participants)
       PHASE_IV:
@@ -3970,10 +4046,19 @@ slots:
   reference_title:
     description: The title of the referenced publication
     range: string
-    recommended: true
+    required: true
     implements:
       - dcterms:title
     comments:
+      - >-
+        Required. Copy the title from the `title:` frontmatter of the
+        reference's references_cache/ file, never from memory:
+        `uv run python scripts/backfill_reference_titles.py <file>` does it
+        verbatim. If the cache has no title, re-fetch with
+        `just fetch-reference <ID> --force`; typing a title by hand is how
+        invented citations get in. The slot was `recommended` until every
+        evidence item in kb/ carried one and
+        scripts/find_missing_reference_titles.py had gated new gaps in CI.
       - >-
         `dcterms:title` is what makes this slot machine-checked:
         linkml-reference-validator compares a declared title against the fetched
@@ -6208,6 +6293,16 @@ slots:
     multivalued: true
     range: MondoMapping
     inlined_as_list: true
+  omimps_mappings:
+    description: >-
+      Mappings to OMIM phenotypic series, with an explicit scope relationship.
+      Use exactMatch only for the same disease or disease-family concept;
+      use relatedMatch when a series of susceptibility loci concerns this
+      disease but is not a union of its disease subtypes. A mapping does not
+      assert complete member coverage or Mendelian inheritance.
+    multivalued: true
+    range: OMIMPSMapping
+    inlined_as_list: true
   ncit_mappings:
     description: NCIT disease, subtype, or disease/finding mappings
     multivalued: true
@@ -6281,6 +6376,50 @@ slots:
   minimum_required:
     description: Minimum number of criteria required in this criteria set
     range: integer
+  criteria_set_logic:
+    description: >-
+      How a definition's criteria_sets combine: ALL_OF (a case must satisfy
+      every set) or ANY_OF (one set suffices). Within a set,
+      minimum_required already says how many items must hold. Omit when the
+      source does not say; prose in `description` is then the only record.
+    range: CriteriaSetLogicEnum
+  source_reference:
+    description: >-
+      A reference CURIE (resolving to a references_cache/ entry) for the
+      record an object was transcribed from.
+    range: uriorcurie
+  code_lists:
+    description: >-
+      Code lists whose codes satisfy this criterion; a record matches if it
+      carries any code from any list. The criterion's preferred_term names
+      what the codes stand for.
+    multivalued: true
+    range: CodeList
+    inlined_as_list: true
+  codes:
+    description: >-
+      The codes in a code list, each as a Term whose id is
+      `<code_system>:<code>` and whose label is the source's own description.
+    multivalued: true
+    range: Term
+    inlined_as_list: true
+  code_system_version:
+    description: Version or release of the code system or refset a code list was drawn from.
+    range: string
+  minimum_occurrences:
+    description: >-
+      Minimum number of distinct records (encounters, code instances, results)
+      that must satisfy the criterion, e.g. 3 for "3 or more counts of the SLE
+      ICD-9 code". Absent means one occurrence suffices.
+    range: integer
+    minimum_value: 1
+  minimum_interval_days:
+    description: >-
+      Minimum days between the first and last qualifying occurrence, e.g. 30
+      for "two outpatient visits at least 30 days apart". Only meaningful with
+      minimum_occurrences of 2 or more.
+    range: integer
+    minimum_value: 0
   consistency:
     description: Consistency assertions for this mapping against other sources
     multivalued: true
@@ -6717,6 +6856,15 @@ classes:
     slot_usage:
       id:
         pattern: "^LOINC:(LP|LG)?[0-9]+-[0-9]$"
+
+  OMIMPSCode:
+    is_a: Term
+    description: >-
+      An OMIM phenotypic-series identifier, distinct from an individual OMIM
+      phenotype or gene record even when their six-digit numbers coincide.
+    slot_usage:
+      id:
+        pattern: "^OMIMPS:[0-9]{6}$"
 
   # Base descriptor class for structured term references
   Descriptor:
@@ -7677,10 +7825,14 @@ classes:
       phase:
         range: ClinicalTrialPhaseEnum
         description: >-
-          Trial phase. Enum-bound: use PHASE_I, PHASE_II, PHASE_III, PHASE_IV, or
-          NOT_APPLICABLE, not the prose spellings ("Phase III").
+          Trial phase. Enum-bound: use EARLY_PHASE_I, PHASE_I, PHASE_I_II,
+          PHASE_II, PHASE_II_III, PHASE_III, PHASE_IV or NOT_APPLICABLE, not
+          the prose spellings ("Phase III"). A trial the registry records as
+          PHASE1|PHASE2 or PHASE2|PHASE3 takes the combined value, not either
+          component.
         examples:
           - value: PHASE_III
+          - value: PHASE_II_III
           - value: NOT_APPLICABLE
         recommended: true
       status:
@@ -8466,10 +8618,11 @@ classes:
         recommended: true
         description: >-
           Title of the referenced publication. Recommended so that
-          linkml-data-qc scores its absence, matching the `recommended: true`
-          already carried by the EvidenceItem `reference_title` twin. Set here
-          via slot_usage rather than on the shared `title` slot, which is also
-          used by Dataset and TrackedIssue.
+          linkml-data-qc scores its absence. Its EvidenceItem twin,
+          `reference_title`, is required; this slot stays recommended because
+          scripts/find_missing_reference_titles.py only reports its gaps.
+          Set here via slot_usage rather than on the shared `title` slot,
+          which is also used by Dataset and TrackedIssue.
   ExternalAssertion:
     description: >-
       An externally curated assertion or registry record relevant to a disease or
@@ -8579,8 +8732,12 @@ classes:
           entry's subtypes are classified separately (ATP7A: Menkes disease
           and X-linked distal SMA).
   ProgressionInfo:
+    description: >-
+      One phase of a disease's natural history: what happens during it, how
+      long it lasts, and the age or incubation interval at which it occurs.
     slots:
       - phase
+      - description
       - subtype
       - age_range
       - evidence
@@ -8590,6 +8747,16 @@ classes:
       - notes
       - duration_days
       - duration
+    slot_usage:
+      description:
+        description: >-
+          What happens during this phase. This is the phase's own account of
+          the disease and belongs here rather than in `notes`, which is for
+          the caveats and qualifications that account needs.
+        examples:
+          - value: >-
+              Fetal thrombocytopenia can begin in the second trimester and is
+              detectable on cordocentesis before any clinical bleeding.
   ClinicalBurden:
     description: >-
       Disease-level assessment of the typical clinical burden imposed by a
@@ -9569,6 +9736,8 @@ classes:
       - description
       - scope
       - attaches_to
+      - source_reference
+      - criteria_set_logic
       - criteria_sets
       - inclusion_criteria
       - exclusion_criteria
@@ -9579,6 +9748,12 @@ classes:
         required: true
       definition_type:
         required: true
+      source_reference:
+        description: >-
+          The phenotype-library record this definition is transcribed from, as
+          a citable reference CURIE (`PHEKB:615`, `HDRUK:PH304`). Fetch it with
+          `just fetch-reference` so its cached body can be quoted as evidence.
+          Leave absent for a definition composed from the literature.
       attaches_to:
         description: >-
           For a hypothesis-based definition, the pathophysiology node(s)/edge(s)
@@ -9631,6 +9806,39 @@ classes:
   CriteriaItem:
     is_a: Descriptor
     description: A criterion element (clinical feature, test result, imaging requirement)
+    slots:
+      - code_lists
+      - minimum_occurrences
+      - minimum_interval_days
+
+  CodeList:
+    description: >-
+      A set of clinical codes from one code system, any one of which satisfies
+      the criterion carrying the list. This is how a computable phenotype's
+      codelist (an HDR UK concept, a PheKB code table, an OHDSI concept set) is
+      recorded: each code is copied with the label its source gives it, so a
+      list transcribed from a phenotype library can be checked row by row
+      against that library's cached record (`just check-codelists`).
+    slots:
+      - name
+      - code_system
+      - code_system_version
+      - source_reference
+      - codes
+    slot_usage:
+      code_system:
+        range: CodeSystemEnum
+        required: true
+      code_system_version:
+        description: >-
+          The release or refset version the source names (e.g.
+          `nhsd-primary-care-domain-refsets/sickle_cod/20250912`). Omit when
+          the source names none.
+      source_reference:
+        description: >-
+          The reference CURIE the codes were copied from (`HDRUK:PH304`,
+          `PHEKB:615`). Must be a cached reference; `just check-codelists`
+          confirms each code appears in it.
 
   TermMapping:
     description: Mapping from this disease entry to an external term or code
@@ -9688,6 +9896,19 @@ classes:
             range: NCITDiseaseOrFindingTerm
             obligation_level: REQUIRED
 
+  OMIMPSMapping:
+    is_a: TermMapping
+    description: Mapping to an OMIM phenotypic series, not an individual OMIM record
+    slot_usage:
+      term:
+        range: OMIMPSCode
+        bindings:
+          - binds_value_of: id
+            range: OMIMPSTerm
+            obligation_level: REQUIRED
+      mapping_justification:
+        required: true
+
   MappingConsistency:
     description: Consistency assertion for a mapping relative to another source
     slots:
@@ -9708,6 +9929,7 @@ classes:
       - icd10cm_mappings
       - icd11f_mappings
       - mondo_mappings
+      - omimps_mappings
       - ncit_mappings
 
   ConditionDescriptor:
