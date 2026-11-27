@@ -47,6 +47,9 @@ pathophysiology nodes there, beginning with
 and including
 <span class="result" data-code="g.node('Wilson Disease', 'Impaired Biliary Copper Excretion')">Impaired Biliary Copper Excretion<span class="method"></span></span>
 and <span class="result" data-code="g.node('Wilson Disease', 'Impaired Ceruloplasmin Loading')">Impaired Ceruloplasmin Loading<span class="method"></span></span>.
+That last node also names CP, because the ferroxidase activity it marks as
+decreased is ceruloplasmin's, lost when the apoprotein receives no copper; the
+activity the node attributes to ATP7B is still the copper transporter.
 
 ## Where the layers disagree
 

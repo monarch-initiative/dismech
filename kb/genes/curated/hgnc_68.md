@@ -28,22 +28,33 @@ ai-gene-review gives ABCD4's core molecular functions as
 acting in <span class="result" data-compare="names" data-code="g.core_function_terms('directly_involved_in')">cobalamin transport; and cobalamin metabolic process<span class="method"></span></span>.
 With its escort LMBD1, ABCD4 exports cobalamin from the lysosome to the cytosol.
 
-## Causative record
+## How the entries record the gene
 
-<span class="result" data-compare="names" data-code="g.disorders('causative')">Methylmalonic Acidemia With Homocystinuria, Type cblJ<span class="method"></span></span> types ABCD4 as causative, with a
-<span class="result" data-code="g.variant_origin('Methylmalonic Acidemia With Homocystinuria, Type cblJ')">germline<span class="method"></span></span> variant origin. ABCD4 sits on
-<span class="result" data-code="len(g.nodes('Methylmalonic Acidemia With Homocystinuria, Type cblJ'))">2<span class="method"></span></span> of its nodes, including
-<span class="result" data-code="g.node('Methylmalonic Acidemia With Homocystinuria, Type cblJ', 'ABCD4 Variants Disabling the Lysosomal Cobalamin Exporter')">ABCD4 Variants Disabling the Lysosomal Cobalamin Exporter<span class="method"></span></span>.
-ClinGen rates the relationship <span class="result" data-code="g.clingen('Methylmalonic Acidemia With Homocystinuria, Type cblJ')">moderate<span class="method"></span></span>.
+Both entries type ABCD4
+<span class="result" data-compare="names" data-code="g.disorders('unknown', 'germline')">Inborn Disorder of Cobalamin Metabolism and Transport; and Methylmalonic Acidemia With Homocystinuria, Type cblJ<span class="method"></span></span>
+as unknown, with a germline origin. The typing follows ClinGen, which rates the
+gene <span class="result" data-code="g.clingen('Methylmalonic Acidemia With Homocystinuria, Type cblJ')">moderate<span class="method"></span></span>
+for cblJ, below the Definitive or Strong tier that causative requires; the
+grouping entry carries the same tier on its cblJ subtype
+(<span class="result" data-code="g.clingen('Inborn Disorder of Cobalamin Metabolism and Transport')">moderate<span class="method"></span></span>).
+
+In the cblJ entry ABCD4 sits on
+<span class="result" data-code="len(g.nodes('Methylmalonic Acidemia With Homocystinuria, Type cblJ'))">2<span class="method"></span></span>
+nodes, starting with
+<span class="result" data-code="g.node('Methylmalonic Acidemia With Homocystinuria, Type cblJ', 'ABCD4 Variants Disabling the Lysosomal Cobalamin Exporter')">ABCD4 Variants Disabling the Lysosomal Cobalamin Exporter<span class="method"></span></span>,
+which records a
+<span class="result" data-code="g.functional_impact('Methylmalonic Acidemia With Homocystinuria, Type cblJ')">loss of function<span class="method"></span></span>
+and marks the transporter activity as decreased, and continuing to
+<span class="result" data-code="g.node('Methylmalonic Acidemia With Homocystinuria, Type cblJ', 'Failure of the ABCD4-LMBD1 Complex at the Lysosomal Membrane')">Failure of the ABCD4-LMBD1 Complex at the Lysosomal Membrane<span class="method"></span></span>.
+The grouping entry places it on
+<span class="result" data-code="g.node('Inborn Disorder of Cobalamin Metabolism and Transport', 'Defective cobalamin absorption, transport, and cellular uptake')">Defective cobalamin absorption, transport, and cellular uptake<span class="method"></span></span>.
+In every case the export activity is ABCD4's: reconstituted in liposomes,
+ABCD4 moves cobalamin out in an ATPase-dependent way, while LMBD1 has no
+transport activity and is needed only to bring ABCD4 to the lysosome.
 
 ## Agreement between the layers
 
 The KB mechanism and the gene review share
-<span class="result" data-compare="names" data-code="g.shared_processes()">cobalamin transport<span class="method"></span></span>.
-
-The grouping-level entry Inborn Disorder of Cobalamin Metabolism and Transport
-places ABCD4 on a node
-(<span class="result" data-code="g.node('Inborn Disorder of Cobalamin Metabolism and Transport', 'Defective cobalamin absorption, transport, and cellular uptake')">Defective cobalamin absorption, transport, and cellular uptake<span class="method"></span></span>)
-but has <span class="result" data-code="g.relationship('Inborn Disorder of Cobalamin Metabolism and Transport')">no genetic record<span class="method"></span></span>
-for it; the ClinGen-matched entries that do not type ABCD4 are
-<span class="result" data-compare="names" data-code="g.clingen_but_untyped()">Inborn Disorder of Cobalamin Metabolism and Transport<span class="method"></span></span>.
+<span class="result" data-compare="names" data-code="g.shared_processes()">cobalamin transport<span class="method"></span></span>
+by exact GO identifier, and the nodes' decreased activity is the review's core
+transporter function.
