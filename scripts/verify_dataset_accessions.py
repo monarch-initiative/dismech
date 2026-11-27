@@ -97,9 +97,11 @@ KB_GLOBS = ("kb/disorders/*.yaml", "kb/modules/*.yaml", "kb/comorbidities/*.yaml
 # The value is the cache filename stem, which is the prefix upper-cased (lrv
 # normalizes `geo:` and `GEO:` to the same `GEO` source).
 #
-# Only GEO is migrated so far; it is 919 of the KB's 1,696 distinct accessions.
-# The rest keep the API resolvers below until they get a fetcher too.
-REFERENCE_CACHED_PREFIXES = {"geo": "GEO"}
+# GEO (919 of the KB's 1,696 distinct accessions) and MetaboLights are migrated
+# so far; MetaboLights uses the custom JSON source in
+# .linkml-reference-validator-sources.yaml. The rest keep the API resolvers
+# below until they get a fetcher too.
+REFERENCE_CACHED_PREFIXES = {"geo": "GEO", "metabolights": "METABOLIGHTS"}
 
 EUTILS = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 # dbGaP is NOT reachable through E-utilities: NCBI has withdrawn the `gap` db.

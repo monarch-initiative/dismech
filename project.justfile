@@ -182,6 +182,16 @@ validate-pre-edit file:
     fi
     echo "✓ Pre-edit validation passed for {{file}}"
 
+# Run the per-entry structural tests in tests/test_data.py (test_disorder_file,
+# test_module_file, test_comorbidity_file) on the given KB files only. These
+# are the `kb_data` checks the merge queue runs over the whole KB; CI runs this
+# on the entries a curation PR changes, so an entry-local failure shows up on
+# the PR rather than in the queue (#18313). Deleted files are skipped.
+#   just test-kb-files kb/disorders/Asthma.yaml kb/modules/fibrotic_response.yaml
+[group('QC')]
+test-kb-files *files: gen-python
+    uv run python scripts/run_changed_kb_entry_tests.py "$@"
+
 # Full validation of one or more disorder files, batched by validator phase.
 # This is intended for CI changed-file validation, where a PR may touch hundreds
 # of disorder YAMLs but still should avoid full-corpus validation. Reference
@@ -311,6 +321,16 @@ new-history *ARGS:
 [group('Analysis')]
 last-pass-report *args="":
     uv run python -m dismech.last_pass {{args}}
+
+# Validate schema, lifecycle and artifact integrity of ontology proposals
+[group('QC')]
+validate-ontology-changes:
+    uv run python -m dismech.ontology_changes validate
+
+# Query proposals or emit a reviewable Markdown request; never publishes
+[group('Analysis')]
+ontology-changes *ARGS:
+    uv run python -m dismech.ontology_changes "$@"
 
 # Validate a single history record
 [group('QC')]
@@ -1144,7 +1164,7 @@ stub-obsolescence *args="":
 
 # Run all QC checks (cache contracts + validation + modules + deep-research report checks)
 [group('QC')]
-qc: check-stubs check-skill-files check-case-collisions check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
+qc: validate-ontology-changes check-stubs check-skill-files check-case-collisions check-unsuccessful-research check-reference-cache-nul-bytes check-reference-cache-welded-headings check-duplicate-keys check-block-scalar-comments check-enum-values check-hypothesis-links check-delivery-system check-gene-namespaces check-entity-refs check-logical-rules check-causal-targets check-name-collisions check-shared-disease-terms compliance-connectivity check-gene-activity-grounding check-cancer-origin check-granularity check-knowledge-gap-targets check-qualifier-terms check-codelists check-coarse-phenotypes check-source-defect-claims check-snippet-boundaries check-reference-cache-frontmatter check-term-cache-integrity check-cache-order check-not4curation check-folded-hyphens check-folded-yaml check-snippet-length check-title-snippets check-reference-titles check-reference-titles-present check-snippet-grading check-retired-support-prose check-empty-snippets check-environmental-evidence validate-all validate-modules validate-module-collections validate-groupings validate-synthesis-all validate-phenotype-distributions validate-hypothesis-assessment-all validate-hypothesis-reconciliation-all qc-deep-research
     @echo "All QC checks passed!"
 
 # Deep research QC: provider coverage + citation/reference coverage
@@ -1521,6 +1541,30 @@ alias validate-references := validate-kb-references
 count-verified-snippets *args:
     uv run python -m dismech.reference_snippet_audit --schema {{schema_path}} --config {{ref_validator_config}} {{args}}
 
+# Sync signed fair-use excerpts from the PRIVATE monarch-initiative/claimstore
+# repo into signed_excerpts/. Needs read access to claimstore and a local clone,
+# at ../claimstore by default or wherever CLAIMSTORE_DIR points. Selection
+# (target_repo, referenced_in, prune) lives in conf/reference_validator_config.yaml.
+# Pass --check to report drift without writing. Commit the changed
+# signed_excerpts/*.yaml with the disorder files that quote them; CI validates
+# against the committed copy and never needs claimstore.
+[group('Research')]
+sync-signed-excerpts *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    src="${CLAIMSTORE_DIR:-../claimstore}/signed_excerpts"
+    if [ ! -d "$src" ]; then
+        echo "claimstore not found at $src" >&2
+        echo "Clone the private repo (needs read access) and/or set CLAIMSTORE_DIR:" >&2
+        echo "  git clone git@github.com:monarch-initiative/claimstore.git ../claimstore" >&2
+        exit 2
+    fi
+    if ! uv run linkml-reference-validator excerpts --help >/dev/null 2>&1; then
+        echo "linkml-reference-validator has no 'excerpts sync' command; upgrade to >=0.7.0" >&2
+        exit 2
+    fi
+    uv run linkml-reference-validator excerpts sync --config {{ref_validator_config}} --source "$src" {{args}}
+
 # Audit curated `clinical_trials` status/phase against live ClinicalTrials.gov.
 # A trial's `status:`/`phase:` are a snapshot taken at curation time and nothing
 # re-checks them: the trial registry is the one live-API reference source with no
@@ -1692,6 +1736,15 @@ check-block-scalar-comments *files:
 [group('QC')]
 check-case-collisions:
     uv run python scripts/check_case_collisions.py
+
+# deep-research-client 0.2.14 marks a run that produced no report -- a from-memory
+# answer, a refusal, a self-declared incomplete draft -- answer_status: unsuccessful
+# and exits 4, but the file still lands in research/. Ungated and whole-tree
+# because the PRs that add one touch only research/ and kb/. ~2s, offline.
+# Fail when research/ holds a deep-research run marked answer_status: unsuccessful
+[group('QC')]
+check-unsuccessful-research *args="":
+    uv run python scripts/check_unsuccessful_research.py {{args}}
 
 # PDF text extraction emits an unmapped glyph -- usually an fi/fl ligature -- as
 # U+0000, and one NUL makes grep treat the whole file as binary and silently drop
@@ -2043,6 +2096,22 @@ list-coarse-phenotypes *files:
 update-coarse-phenotype-baseline:
     uv run python scripts/check_coarse_phenotypes.py --update-baseline
 
+# Check computable-phenotype code lists (`CodeList` on a definition's criteria).
+# Every code must carry its list's code_system prefix and syntax, and when the
+# list names a cached `source_reference` (HDRUK:, PHEKB:) every code and its
+# label must appear in that record. Offline; nothing else validates these codes,
+# because `codes` is not bound to an ontology enum. See docs/computable-phenotypes.md.
+[group('QC')]
+check-codelists *files:
+    uv run dismech check-codelists "$@"
+
+# Print a `definitions:` fragment for HDR UK Phenotype Library phenotype(s) and
+# cache their HDRUK: reference records. Needs network.
+#   just hdruk-definition PH304 PH3021
+[group('Research')]
+hdruk-definition +ids:
+    uv run dismech hdruk-definition "$@"
+
 # Check ontology labels on terms nested inside `qualifiers` (#10197).
 # `linkml-term-validator` validates slots bound to ontology-backed dynamic enums;
 # `Qualifier.predicate`/`value` are plain Descriptors with no such binding, so
@@ -2259,9 +2328,11 @@ update-retired-support-prose-baseline:
 # self-contradicting (#8184). Also compares the same sentence across files and
 # fails on HUMAN_CLINICAL against IN_VITRO/MODEL_ORGANISM/COMPUTATIONAL (#11221).
 # Grandfathered against origin/main like the length and title checks.
+# Pass kb/ paths to report only on the files you touched; the whole corpus is
+# still indexed, because a cross-file pair's other side can be any entry.
 [group('QC')]
-check-snippet-grading:
-    uv run python scripts/check_snippet_grading.py --against-ref origin/main
+check-snippet-grading *args="":
+    uv run python scripts/check_snippet_grading.py --against-ref origin/main {{ args }}
 
 # List every snippet-grading divergence, baselined or not (triage view).
 # `--fields all` adds the `supports` divergences, which are NOT gated -- see the
@@ -2270,7 +2341,7 @@ check-snippet-grading:
 # including the report-only pairs involving OTHER (pending #10273).
 [group('QC')]
 list-snippet-grading *args="":
-    uv run python scripts/check_snippet_grading.py --all {{args}}
+    uv run python scripts/check_snippet_grading.py --all {{ args }}
 
 # Regenerate both snippet-grading baselines (per-file and cross-file) after
 # intentionally changing the set (e.g. reconciling backlog divergences). Review
@@ -2480,6 +2551,11 @@ ai-blame-annotate-all:
     else
         echo "Completed without errors."
     fi
+
+# Lint Python with the pinned ruff -- the same command CI runs (#9964)
+[group('QC')]
+lint-python *args:
+    uv run ruff check . {{args}}
 
 # Lint the schema
 [group('QC')]
@@ -2941,7 +3017,10 @@ templates_dir := "templates"
 #   just validate-research-reference <the report that was written>
 #
 # To skip it (quick iteration, or no network):
-#   just dr_validation='' research-disorder falcon Marfan_Syndrome
+#   just dr_validation='--no-validate-references' research-disorder falcon Marfan_Syndrome
+# Not `dr_validation=''`: since deep-research-client 0.2.15 references are
+# validated by default, so an empty variable only drops our cache directory and
+# the run validates into ~/.deep_research_cache/references instead.
 dr_validation := "--validate-references --validation-cache-dir references_cache"
 
 # Ontology term validation applied to a deep-research report as it is generated
@@ -3191,6 +3270,77 @@ claim-confirmation provider slug *args="":
     provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
     {{dr_client}} research \
         --template {{templates_dir}}/claim_confirmation_research.md \
+        "${var_args[@]}" \
+        $provider_arg \
+        --output "$staged_file" \
+        --separate-citations "$staged_file.citations.md" \
+        {{dr_validation}} \
+        {{dr_term_validation}} \
+        {{dr_fallback}} \
+        {{args}} || dr_status=$?
+    if [ -f "$staged_file" ]; then
+        {{dr_stamp}} "$staged_file"
+        {{dr_align}} "$staged_file" --requested "$requested_provider" --into "$(dirname "$output_file")"
+    fi
+    rmdir "$staging_dir" 2>/dev/null || true
+    exit ${dr_status:-0}
+
+# Print the prompt `just nam-mining` would send for one use case in
+# templates/nam_mining/, and stop. Rendered through the client's own template
+# processor, so the preview cannot drift from what a run sends.
+# Print it first: the systems list and the candidate nodes are the whole
+# experiment, and a run costs real time and credit.
+# Example: just nam-mining-prompt zheng_2023_hmo_graft
+[group('Research')]
+nam-mining-prompt slug:
+    uv run python scripts/nam_mining_vars.py {{slug}} --format prompt
+
+# Deep research dissecting one paper into its biological systems, then deciding
+# for each system which mechanism nodes it bears on, with a relationship verb,
+# a fidelity tier, the scale it actually observes, and what it does not model.
+# Written for NAM screening, where one paper routinely holds several separable
+# systems and a registry record is wanted for each whether or not it anchors to
+# a node.
+#
+# Like claim-confirmation, the per-paper variables are hand-written in
+# templates/nam_mining/<slug>.yaml, because nothing here can derive them: which
+# systems a paper contains and which nodes are worth testing are the screener's
+# judgement. Committing the spec is what makes a run reproducible rather than
+# hand-assembled and lost. The `nam-mining` skill is the procedure for writing
+# one, including the triage that decides whether a paper earns a run at all.
+#
+# The ninth variable is generated from the schema, so the prompt carries the link
+# object's own slot definitions rather than a paraphrase free to drift from them.
+#
+# This answers "what does each system in this paper model, and how faithfully",
+# not "is this model valid" -- the second is research-model-validity, which
+# takes one named model and searches the whole literature on it.
+# Examples:
+#   just nam-mining-prompt zheng_2023_hmo_graft
+#   just nam-mining openscientist zheng_2023_hmo_graft
+[group('Research')]
+nam-mining provider slug *args="":
+    #!/usr/bin/env bash
+    set -e
+    entry=$(uv run python scripts/nam_mining_vars.py {{slug}} --format entry)
+    out_dir="{{research_dir}}/nam_mining"
+    mkdir -p "$out_dir"
+    output_file="$out_dir/$entry-nam-mining-{{slug}}-deep-research-{{provider}}.md"
+    requested_provider="{{provider}}"
+    staging_dir=$(mkdir -p {{dr_staging_dir}} && mktemp -d "{{dr_staging_dir}}/run.XXXXXX")
+    staged_file="$staging_dir/$(basename "$output_file")"
+    # The variable values are multi-line, so they go through a NUL-separated
+    # file: command substitution would drop the separators.
+    uv run python scripts/nam_mining_vars.py {{slug}} --format null > "$staging_dir/vars"
+    var_args=()
+    while IFS= read -r -d '' record; do
+        var_args+=(--var "$record")
+    done < "$staging_dir/vars"
+    rm -f "$staging_dir/vars"
+    echo "NAM mining: $entry [{{slug}}] ({{provider}}) -> $output_file"
+    provider_arg=$([[ "{{provider}}" == "cborg" ]] && echo "--use-cborg" || echo "--provider {{provider}}")
+    {{dr_client}} research \
+        --template {{templates_dir}}/nam_mining_research.md \
         "${var_args[@]}" \
         $provider_arg \
         --output "$staged_file" \
@@ -3930,7 +4080,7 @@ fetch-reference +identifiers:
     for identifier in "${ids[@]}"; do
         echo "Fetching reference: $identifier"
         case "$identifier" in
-            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*)
+            CIViC_EID:*|CIVIC_EID:*|civic_eid:*|CIViC_ASSERTION:*|CIVIC_ASSERTION:*|civic_assertion:*|ICTRP:*|ictrp:*|HDRUK:*|hdruk:*|PHEKB:*|phekb:*|CGGV:*|CGDS:*|ORPHA:*|Orphanet:*|ICEES:*|NCIT:*|OECDTG:*|oecdtg:*)
                 if [ ${#flags[@]} -gt 0 ]; then
                     echo "Note: ${flags[*]} ignored for $identifier; structured-source records are always rebuilt." >&2
                 fi
@@ -3945,6 +4095,12 @@ fetch-reference +identifiers:
                 ;;
             ICTRP:*|ictrp:*)
                 uv run python -m dismech.structured_sources.cli rebuild ictrp --id "$identifier"
+                ;;
+            HDRUK:*|hdruk:*)
+                uv run python -m dismech.structured_sources.cli rebuild hdruk --id "$identifier"
+                ;;
+            PHEKB:*|phekb:*)
+                uv run python -m dismech.structured_sources.cli rebuild phekb --id "$identifier"
                 ;;
             # Structured-source prefixes have no linkml-reference-validator
             # fetcher, so handing them to `cache reference` only ever printed
@@ -3985,6 +4141,13 @@ fetch-reference +identifiers:
                 ;;
             ICEES:*)
                 uv run python -m dismech.structured_sources.cli rebuild icees --id "$identifier"
+                ;;
+            # The paragraph index is committed, so unlike the other structured
+            # prefixes there is nothing to refresh and no network call: the
+            # rebuild renders `data/oecd_tg/*-paragraphs.json`. The guideline PDF
+            # is pinned by sha256 in that manifest and is not needed here.
+            OECDTG:*|oecdtg:*)
+                uv run python -m dismech.structured_sources.cli rebuild oecd-tg --id "$identifier"
                 ;;
             NCIT:*)
                 # `rebuild ncit` opens sqlite:obo:ncit, and OAK downloads that
@@ -4997,3 +5160,14 @@ extract-oecd-tg pdf out="data/oecd_tg/tg442d-paragraphs.json":
 # Check extracted Test Guideline facts against the paragraphs they cite
 check-tg-extraction *args="":
     @uv run python scripts/check_tg_extraction.py {{args}}
+
+# Rebuild references_cache/OECDTG_*.md from the committed paragraph indexes, so a KB
+# entry can cite `OECDTG:442D` and quote a paragraph. Offline and deterministic: the
+# index is committed, the PDF is not needed, and re-running changes nothing unless the
+# index did. Commit the cache file alongside the entry that cites it.
+oecd-tg-rebuild *args="":
+    @uv run python -m dismech.structured_sources.cli rebuild oecd-tg {{args}}
+
+# Which Test Guidelines have a quotable record
+oecd-tg-list:
+    @uv run python -m dismech.structured_sources.cli list oecd-tg
