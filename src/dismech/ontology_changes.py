@@ -15,6 +15,7 @@ import sys
 from datetime import date, datetime
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import quote
 
 import yaml
 from jsonschema import Draft7Validator, FormatChecker
@@ -47,6 +48,15 @@ TYPE_FIELDS = {
     "EDGE_DELETION": {"edge_object", "predicate"},
 }
 EDIT_FIELDS = set().union(*TYPE_FIELDS.values())
+REVIEW_FIELDS = {
+    "analysis_links",
+    "source_links",
+    "upstream_requests",
+    "member_statuses",
+    "affected_records",
+    "see_also",
+}
+REPO_BLOB = "https://github.com/monarch-initiative/dismech/blob/main/"
 
 
 def _json_default(value):
@@ -211,9 +221,11 @@ def validate_record(record: dict, root: Path | None = None) -> list[str]:
     return errors
 
 
-def mapping_move_view(removal: dict, creation: dict) -> dict:
+def mapping_move_view(
+    removal: dict, creation: dict, *, review_context=False, change_set_id=None
+) -> dict:
     """Materialize the full assertions; atomic proposals remain authoritative."""
-    return copy.deepcopy(
+    view = copy.deepcopy(
         {
             "ontology": removal["ontology"],
             "mapping_representation": removal["mapping_representation"],
@@ -229,6 +241,65 @@ def mapping_move_view(removal: dict, creation: dict) -> dict:
             },
         }
     )
+    if review_context:
+        members = (removal, creation)
+        self_url = REPO_BLOB + f"ontology_changes/change_sets/{change_set_id}.yaml"
+
+        def unique(values):
+            return list(dict.fromkeys(values))
+
+        view.update(
+            analysis_links=unique(
+                REPO_BLOB + quote(a["path"], safe="/")
+                for member in members
+                for a in member.get("analysis_artifacts", [])
+            ),
+            source_links=unique(
+                s["url"] for member in members for s in member["source_snapshots"]
+            ),
+            upstream_requests=unique(
+                member[key]
+                for member in members
+                for key in ("upstream_tracker_issue", "pull_request")
+                if key in member
+            ),
+            member_statuses=[
+                {
+                    "proposal_id": member["id"],
+                    "record_url": REPO_BLOB + f"ontology_changes/{member['id']}.yaml",
+                    **{
+                        key: member[key]
+                        for key in (
+                            "origin",
+                            "confidence",
+                            "stance",
+                            "request_status",
+                            "adoption_status",
+                            "adoption_notes",
+                            "ontology_state_verified",
+                        )
+                        if key in member
+                    },
+                }
+                for member in members
+            ],
+            affected_records=unique(
+                path
+                for member in members
+                for path in member.get("affected_records", [])
+            ),
+            see_also=unique(
+                url
+                for member in members
+                for url in member.get("see_also", [])
+                if url != self_url
+            ),
+        )
+    return json.loads(json.dumps(view, default=_json_default))
+
+
+def _has_review_context(record):
+    return bool((REVIEW_FIELDS | {"justification"}) & record.keys())
 
 
 def _refresh_move_view(record, proposals):
@@ -244,11 +315,20 @@ def _refresh_move_view(record, proposals):
         or creation["change_type"] != "MAPPING_CREATION"
     ):
         return record
-    return {**record, **mapping_move_view(removal, creation)}
+    return {
+        **record,
+        **mapping_move_view(
+            removal,
+            creation,
+            review_context=_has_review_context(record),
+            change_set_id=record.get("id"),
+        ),
+    }
 
 
 def validate_change_set(record: dict, proposals: dict[str, dict]) -> list[str]:
     """Validate the references and semantics of a coordinated mapping move."""
+    record = json.loads(json.dumps(record, default=_json_default))
     errors = [
         f"{'/'.join(map(str, e.path))}: {e.message}"
         for e in schema_validator("OntologyChangeSet").iter_errors(record)
@@ -274,8 +354,15 @@ def validate_change_set(record: dict, proposals: dict[str, dict]) -> list[str]:
         errors.append("MAPPING_MOVE must retain predicate/qualifier")
     if removal["about_node"]["id"] == creation["about_node"]["id"]:
         errors.append("MAPPING_MOVE requires distinct old and new subjects")
-    for field, expected in mapping_move_view(removal, creation).items():
-        if record[field] != expected:
+    review_context = _has_review_context(record)
+    if review_context and not record.get("justification"):
+        errors.append(
+            "review context requires a curated justification; refresh cannot invent one"
+        )
+    for field, expected in mapping_move_view(
+        removal, creation, review_context=review_context, change_set_id=record["id"]
+    ).items():
+        if field not in record or record[field] != expected:
             errors.append(
                 f"{field} disagrees with member proposals; run refresh-change-set-views"
             )
@@ -375,6 +462,11 @@ def render_change_set(change_set: dict, proposals: dict[str, dict]) -> str:
     lines = [
         f"# {change_set['title']}",
         "",
+        *(
+            [change_set["justification"].strip(), ""]
+            if "justification" in change_set
+            else []
+        ),
         "Review both edits together. Member statuses below are independent; this is not an executable transaction.",
         "",
         "| Mapping | Before | After |",
@@ -439,10 +531,17 @@ def main(argv=None) -> int:
             "id",
             "title",
             "change_set_type",
+            "justification",
             "ontology",
             "mapping_representation",
             "before",
             "after",
+            "analysis_links",
+            "source_links",
+            "upstream_requests",
+            "member_statuses",
+            "affected_records",
+            "see_also",
             "removal",
             "creation",
         )
@@ -450,7 +549,10 @@ def main(argv=None) -> int:
         for change_set in change_sets:
             path = root / REGISTRY / "change_sets" / f"{change_set['id']}.yaml"
             text = yaml.safe_dump(
-                {key: change_set[key] for key in fields},
+                {
+                    **{key: change_set[key] for key in fields if key in change_set},
+                    **change_set,
+                },
                 sort_keys=False,
                 allow_unicode=True,
                 width=100,
@@ -464,7 +566,7 @@ def main(argv=None) -> int:
             f"Validated {len(records)} ontology change proposal(s) and {len(change_sets)} change set(s)"
         )
     elif args.command == "list-change-sets":
-        print(json.dumps(change_sets, indent=2))
+        print(json.dumps(change_sets, indent=2, default=_json_default))
     elif args.command == "list":
         members = None
         if args.change_set:
