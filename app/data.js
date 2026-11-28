@@ -173181,11 +173181,10 @@ window.searchData = [
       "CL:0008019"
     ],
     "biological_processes": [
-      "transcription by RNA polymerase II",
       "nervous system development",
       "phosphatidylinositol-mediated signaling",
-      "miRNA-mediated gene silencing",
       "TGF-beta receptor signaling pathway",
+      "miRNA-mediated gene silencing",
       "skeletal system development",
       "anatomical structure morphogenesis"
     ],
@@ -173260,8 +173259,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 2,
     "num_treatments": 5,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Female_Infertility_Due_To_Zona_Pellucida_Defect",
@@ -250686,8 +250685,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Kaposiform Hemangioendothelioma",
@@ -299421,8 +299420,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Multiple Mitochondrial Dysfunctions Syndrome 5",
@@ -459520,8 +459519,8 @@ window.searchMetrics = {
   "total_disorder_pages": 4220,
   "total_subtypes": 5182,
   "total_disorders_and_subtypes": 9402,
-  "total_unique_evidence_sources": 63365,
-  "total_unique_publications": 59188,
+  "total_unique_evidence_sources": 63368,
+  "total_unique_publications": 59191,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
   "total_pathographs": 4218,
