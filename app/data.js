@@ -43493,10 +43493,13 @@ window.searchData = [
       "Reduced visual acuity",
       "Progressive visual loss",
       "Centrocecal scotoma",
+      "Central scotoma",
       "Acquired blue-yellow dyschromatopsia",
       "Abnormality of visual evoked potentials",
       "Abnormal electroretinogram",
-      "Abnormal retinal nerve fiber layer morphology"
+      "Abnormal retinal nerve fiber layer morphology",
+      "Increased cup-to-disc ratio",
+      "Peripapillary atrophy"
     ],
     "phenotype_categories": [
       "Phenotypic abnormality"
@@ -43511,12 +43514,18 @@ window.searchData = [
       "HP:0007663",
       "HP:0000529",
       "HP:0000576",
+      "HP:0000603",
       "HP:0007641",
       "HP:0000649",
       "HP:0000512",
-      "HP:0020119"
+      "HP:0020119",
+      "HP:0012796",
+      "HP:0500087"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OCCASIONAL",
+      "FREQUENT"
+    ],
     "genes": [
       "OPA1"
     ],
@@ -43531,11 +43540,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Optic_Atrophy.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Optic_Atrophy.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 12,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "35",
+    "causal_graph_edges": "37",
     "causal_graph_longest_path": "7"
   },
   {
@@ -48222,7 +48231,7 @@ window.searchData = [
     "creation_date": "2026-11-10T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "DFNB7/11 is congenital, bilateral, nonsyndromic sensorineural hearing loss caused by biallelic pathogenic variants in TMC1, the gene encoding the pore-forming subunit of the mechanoelectrical transduction (MET) channel at the tips of cochlear hair-cell stereocilia. The DFNB7 and DFNB11 loci on chromosome 9q were mapped independently and resolved to the same gene when TMC1 was positionally cloned in 2002. Loss of TMC1 removes the channel pore, so sound-evoked transduction current never develops in mature auditory hair cells; the hair cells then, in mouse models of the disease, fail to acquire their adult electrophysiological properties and degenerate; the cochlea produces no sound-evoked neural output. Reported recessive genotypes span nonsense, frameshift, splice-site, copy-number, missense and in-frame alleles, and the severity is not read off the allele class: truncating and splice genotypes usually give severe-to-profound loss from birth, hypomorphic missense and in-frame alleles that retain residual channel function are associated with moderate-to-severe or moderate-to-profound loss, and the recurrent nonsense allele p.Arg34Ter appears in families at both ends of that range. Vestibular function is usually described as spared, which mouse work attributes to persistent TMC2 expression in vestibular hair cells, but the human evidence is a single tested child who had peripheral vestibular loss, so sparing is not adopted here as a human phenotype. Management is auditory rehabilitation - hearing aids where residual hearing allows, and cochlear implantation for severe-to-profound loss, with good reported speech outcomes after early implantation. AAV TMC1 gene replacement restores auditory function in mouse models but has not entered human trials. The allelic dominant disease DFNA36 (MONDO:0011708), which is postlingual and progressive, is a separate entity and is out of scope for this entry.",
+    "description": "DFNB7/11 is congenital, bilateral, nonsyndromic sensorineural hearing loss caused by biallelic pathogenic variants in TMC1, the gene encoding the pore-forming subunit of the mechanoelectrical transduction (MET) channel at the tips of cochlear hair-cell stereocilia. The DFNB7 and DFNB11 loci on chromosome 9q were mapped independently and resolved to the same gene when TMC1 was positionally cloned in 2002. Loss of TMC1 removes the channel pore, so sound-evoked transduction current never develops in mature auditory hair cells; the hair cells then, in mouse models of the disease, fail to acquire their adult electrophysiological properties and degenerate; the cochlea produces no sound-evoked neural output. Reported recessive genotypes span nonsense, frameshift, splice-site, copy-number, missense and in-frame alleles, and the severity is not read off the allele class: truncating and splice genotypes usually give severe-to-profound loss from birth, hypomorphic missense and in-frame alleles that retain residual channel function are associated with moderate-to-severe or moderate-to-profound loss, and the recurrent nonsense allele p.Arg34Ter appears in families at both ends of that range. Vestibular function is usually described as spared, which mouse work attributes to persistent TMC2 expression in vestibular hair cells, but the human evidence is thin and does not uniformly agree: a single formally tested child had peripheral vestibular loss, and 1 of 10 recessive or sporadic probands in the largest cohort reported episodes of vertigo, so sparing is not adopted here as a human phenotype. Management is auditory rehabilitation - hearing aids where residual hearing allows, and cochlear implantation for severe-to-profound loss, with good reported speech outcomes after early implantation. AAV TMC1 gene replacement restores auditory function in mouse models but has not entered human trials. The allelic dominant disease DFNA36 (MONDO:0011708), which is postlingual and progressive, is a separate entity and is out of scope for this entry.",
     "pathophysiology": [
       "TMC1 Biallelic Loss of Function",
       "Loss of the TMC1 Pore Subunit from the Stereociliary MET Complex",
@@ -48251,10 +48260,13 @@ window.searchData = [
       "Bilateral sensorineural hearing impairment",
       "Profound hearing impairment",
       "Severe hearing impairment",
-      "Moderate hearing impairment"
+      "Moderate hearing impairment",
+      "High-frequency hearing impairment",
+      "Vertigo"
     ],
     "phenotype_categories": [
-      "Auditory"
+      "Auditory",
+      "Vestibular"
     ],
     "phenotype_hpo_categories": [
       "Ear"
@@ -48265,13 +48277,17 @@ window.searchData = [
       "HP:0008619",
       "HP:0012715",
       "HP:0012714",
-      "HP:0012713"
+      "HP:0012713",
+      "HP:0005101",
+      "HP:0002321"
     ],
     "frequencies": [
       "OBLIGATE",
       "VERY_FREQUENT",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "3/10",
+      "1/10"
     ],
     "genes": [
       "TMC1"
@@ -48287,11 +48303,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_7.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 8,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "37",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "8"
   },
   {
@@ -62944,7 +62960,7 @@ window.searchData = [
     "creation_date": "2026-08-15T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Blue cone monochromacy (BCM) is an X-linked cone dysfunction disorder caused by pathogenic configurations of the OPN1LW/OPN1MW opsin gene array on Xq28. Long- and middle-wavelength-sensitive cone function is absent or severely impaired, with vision predominantly mediated by S cones and rods. Disease mechanisms include deletions of the upstream locus control region (LCR), deletions of coding sequence, inactivating variants in single or multiple expressed opsin genes, and exon 3 haplotypes that cause aberrant splicing. Typical findings include reduced visual acuity, severe colour discrimination defects, infantile nystagmus, photophobia and myopia. S-cone function does not imply normal blue-yellow colour discrimination. Milder exon 3-associated phenotypes overlap with other opsin-related cone disorders. Foveal hypoplasia and macular structural abnormalities occur; progression varies among individuals and measures. Management supports vision and photophobia, while opsin gene augmentation remains investigational.",
+    "description": "Blue cone monochromacy (BCM) is an X-linked cone dysfunction disorder caused by pathogenic configurations of the OPN1LW/OPN1MW opsin gene array on Xq28. Long- and middle-wavelength-sensitive cone function is absent or severely impaired, with vision predominantly mediated by S cones and rods. Disease mechanisms include deletions of the upstream locus control region (LCR), deletions of coding sequence, inactivating variants in single or multiple expressed opsin genes, and exon 3 haplotypes that cause aberrant splicing. Typical findings include reduced visual acuity, severe colour discrimination defects, infantile nystagmus, photophobia and myopia. S-cone function does not imply normal blue-yellow colour discrimination. Milder exon 3-associated phenotypes overlap with other opsin-related cone disorders. Foveal hypoplasia and macular structural abnormalities occur; OCT commonly shows foveal ellipsoid zone disruption and central thinning, and fixation is often unstable and eccentric. Exon 3 haplotype disease adds high myopia with astigmatism and myopic fundus changes. Progression varies among individuals and measures. Management supports vision and photophobia, while opsin gene augmentation remains investigational.",
     "pathophysiology": [
       "Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array",
       "Failure of Locus Control Region-Driven Opsin Expression",
@@ -62985,7 +63001,16 @@ window.searchData = [
       "Severely Reduced Photopic Cone Electroretinogram",
       "Progressive Macular Atrophy",
       "Progressive Loss of Cone Function",
-      "Foveal Hypoplasia"
+      "Foveal Hypoplasia",
+      "Foveal Ellipsoid Zone Disruption",
+      "Reduced Central Foveal Thickness",
+      "Visual Fixation Instability",
+      "Eccentric Fixation",
+      "Astigmatism",
+      "Peripapillary Atrophy",
+      "Temporal Optic Disc Pallor",
+      "Fundus Hypopigmentation",
+      "Disrupted Foveal Autofluorescence"
     ],
     "phenotype_categories": [
       "Ophthalmologic",
@@ -63004,7 +63029,16 @@ window.searchData = [
       "HP:0000512",
       "HP:0000608",
       "HP:0000529",
-      "HP:0007750"
+      "HP:0007750",
+      "HP:0030613",
+      "HP:0030619",
+      "HP:0025405",
+      "HP:0025549",
+      "HP:0000483",
+      "HP:0500087",
+      "HP:0012511",
+      "HP:0007894",
+      "HP:0030602"
     ],
     "frequencies": [
       "FREQUENT"
@@ -63028,11 +63062,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Blue_Cone_Monochromacy.yaml",
     "page_url": "../pages/disorders/Blue_Cone_Monochromacy.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 18,
     "num_pathophysiology": 8,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "6"
   },
   {
@@ -71537,7 +71571,7 @@ window.searchData = [
     "subtypes": [
       "RCD4"
     ],
-    "description": "CACNA2D4-related retinopathy is a rare autosomal recessive inherited retinal disorder caused by biallelic loss-of-function variants in CACNA2D4, which encodes the alpha2delta-4 auxiliary subunit of the Cav1.4 L-type voltage-gated calcium channel at photoreceptor ribbon synapses. Loss of alpha2delta-4 reduces Cav1.4 channel abundance and calcium current at rod and cone terminals and so impairs glutamatergic signalling from photoreceptors to bipolar cells. Reported patients have a cone-dominant dysfunction with mildly to moderately reduced visual acuity, photophobia or light sensitivity, and a distinctive full-field electroretinogram in which light-adapted (cone) responses are most affected and the dark-adapted b-wave can be reduced relative to the a-wave. The original family was described as a slowly progressive cone dystrophy (retinal cone dystrophy 4, RCD4); in a later sibship one patient remained stable without retinal degeneration over 17 years of follow-up, and expression varied between the two siblings. Single reports of retinitis pigmentosa rest on weak genetic evidence. Only a few families are published; ClinGen counted over eight probands. Mouse knockouts show severe rod synapse failure and slow photoreceptor degeneration, which human patients largely do not show.",
+    "description": "CACNA2D4-related retinopathy is a rare autosomal recessive inherited retinal disorder caused by biallelic loss-of-function variants in CACNA2D4, which encodes the alpha2delta-4 auxiliary subunit of the Cav1.4 L-type voltage-gated calcium channel at photoreceptor ribbon synapses. Loss of alpha2delta-4 reduces Cav1.4 channel abundance and calcium current at rod and cone terminals and so impairs glutamatergic signalling from photoreceptors to bipolar cells. Reported patients have a cone-dominant dysfunction with mildly to moderately reduced visual acuity, photophobia or light sensitivity, slow adaptation to bright light in one sibship, and a distinctive full-field electroretinogram in which light-adapted (cone) responses are most affected and the dark-adapted b-wave can be reduced relative to the a-wave. The original family was described as a slowly progressive cone dystrophy (retinal cone dystrophy 4, RCD4); in a later sibship one patient remained stable without retinal degeneration over 17 years of follow-up, and expression varied between the two siblings. Single reports of retinitis pigmentosa rest on weak genetic evidence. Only a few families are published; ClinGen counted over eight probands. Mouse knockouts show severe rod synapse failure and slow photoreceptor degeneration, which human patients largely do not show.",
     "pathophysiology": [
       "Biallelic CACNA2D4 Loss of Function",
       "Reduced Cav1.4 Channel Abundance and Activity at Photoreceptor Terminals",
@@ -71576,12 +71610,16 @@ window.searchData = [
     "phenotypes": [
       "Reduced Visual Acuity",
       "Photophobia",
+      "Delayed Light Adaptation",
+      "Constriction of Peripheral Visual Field",
       "Dyschromatopsia",
       "Cone Dystrophy",
       "Abnormal Light-Adapted Electroretinogram",
+      "Abnormal Light-Adapted 30-Hz Flicker ERG",
       "Reduced Dark-Adapted b-Wave Relative to a-Wave",
       "Rod-Cone Dystrophy",
-      "Foveal Hypoplasia"
+      "Foveal Hypoplasia",
+      "Foveal Pigment Mottling"
     ],
     "phenotype_categories": [
       "Ophthalmological"
@@ -71593,14 +71631,21 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0007663",
       "HP:0000613",
+      "HP:0012047",
+      "HP:0001133",
       "HP:0007641",
       "HP:0008020",
       "HP:0008275",
+      "HP:0030473",
       "HP:0007984",
       "HP:0000510",
-      "HP:0007750"
+      "HP:0007750",
+      "HP:0030493"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "4/4",
+      "2/4"
+    ],
     "genes": [
       "CACNA2D4"
     ],
@@ -71611,11 +71656,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "CACNA2D4-related_Retinopathy.yaml",
     "page_url": "../pages/disorders/CACNA2D4-related_Retinopathy.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 12,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "29",
     "causal_graph_longest_path": "6"
   },
   {
@@ -73142,7 +73187,9 @@ window.searchData = [
       "Ventricular Fibrillation",
       "Bradycardia",
       "Palpitations",
-      "Premature Ventricular Contractions"
+      "Premature Ventricular Contractions",
+      "Ventricular Bigeminy",
+      "Supraventricular Arrhythmia"
     ],
     "phenotype_categories": [
       "Cardiovascular"
@@ -73161,7 +73208,9 @@ window.searchData = [
       "HP:0001663",
       "HP:0001662",
       "HP:0001962",
-      "HP:0006682"
+      "HP:0006682",
+      "HP:0034306",
+      "HP:0005115"
     ],
     "frequencies": [],
     "genes": [
@@ -73186,11 +73235,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "CASQ2_CPVT.yaml",
     "page_url": "../pages/disorders/CASQ2_CPVT.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 11,
     "num_pathophysiology": 24,
     "num_genes": 2,
     "num_treatments": 12,
-    "causal_graph_edges": "77",
+    "causal_graph_edges": "79",
     "causal_graph_longest_path": "14"
   },
   {
@@ -125278,6 +125327,95 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Corticosteroid-Binding Globulin Deficiency",
+    "disease_id": "MONDO:0012675",
+    "category": "Mendelian",
+    "parents": [
+      "Adrenal Gland Disorder",
+      "Hereditary Disease"
+    ],
+    "creation_date": "2026-11-26T18:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Corticosteroid-binding globulin (CBG, transcortin) deficiency is an inherited loss of the plasma carrier protein for cortisol, caused by variants in SERPINA6 (phenotype OMIM 611489). CBG is a liver-secreted glycoprotein of the serpin family that carries 80-90% of circulating cortisol but does not inhibit proteases; neutrophil elastase cleaves its reactive centre loop and thereby releases the bound steroid. Every disease allele described so far reduces function, in one of three ways: no protein is made (stop and frameshift alleles in or shortly after the signal-peptide region), the protein is made but poorly secreted (buried-core missense alleles), or the protein is secreted but binds cortisol weakly or not at all (missense alleles in or next to the steroid pocket). No gain-of-function or dominant-negative disease allele is known; two natural variants resist protease cleavage in vitro, with no known clinical effect. The biochemical trait is semidominant: heterozygotes for a null allele have about half the normal CBG concentration and homozygotes have none. The constant laboratory finding is a low total serum cortisol with normal free cortisol and normal ACTH, which is why affected people are easily misdiagnosed with adrenal or pituitary insufficiency. Chronic fatigue, chronic pain and low blood pressure have been reported in several kindreds, but penetrance is incomplete, carriers of common alleles are often symptom-free, and how symptoms could arise when free cortisol is normal is not established.",
+    "pathophysiology": [
+      "SERPINA6 Null and Truncating Alleles",
+      "SERPINA6 Secretion-Defective Missense Alleles",
+      "SERPINA6 Steroid-Binding-Defective Missense Alleles",
+      "Reduced Hepatic CBG Secretion",
+      "Loss of CBG Cortisol Binding",
+      "Reduced Plasma Cortisol-Binding Capacity",
+      "Low Total Cortisol with Preserved Free Cortisol",
+      "Loss of the CBG-Bound Cortisol Reservoir",
+      "Blunted Stress-Evoked Free Glucocorticoid Rise",
+      "Loss of Targeted Cortisol Delivery to Tissues"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "neutrophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000775"
+    ],
+    "biological_processes": [
+      "protein secretion",
+      "hormone transport"
+    ],
+    "phenotypes": [
+      "Low Total Serum Cortisol",
+      "Reduced Circulating CBG Concentration",
+      "Chronic Fatigue",
+      "Relative Hypotension",
+      "Chronic Pain",
+      "Exercise Intolerance",
+      "Hypoglycemia"
+    ],
+    "phenotype_categories": [
+      "Laboratory",
+      "Constitutional",
+      "Cardiovascular",
+      "Metabolic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Constitutional",
+      "Endocrine",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0008163",
+      "HP:6000243",
+      "HP:0012432",
+      "HP:0002615",
+      "HP:0012532",
+      "HP:0003546",
+      "HP:0001943"
+    ],
+    "frequencies": [],
+    "genes": [
+      "SERPINA6"
+    ],
+    "treatments": [
+      "Hydrocortisone Replacement"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Total serum cortisol",
+      "Free and salivary cortisol",
+      "Plasma ACTH",
+      "Plasma cortisol-binding capacity"
+    ],
+    "source_file": "Corticosteroid-Binding_Globulin_Deficiency.yaml",
+    "page_url": "../pages/disorders/Corticosteroid-Binding_Globulin_Deficiency.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 10,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Cortisone Reductase Deficiency",
     "disease_id": "MONDO:0000193",
     "category": "Mendelian",
@@ -141481,44 +141619,82 @@ window.searchData = [
     ],
     "phenotypes": [
       "Macrocytic Anemia",
+      "Reticulocytopenia",
       "Pure Red Cell Aplasia",
+      "Elevated Erythrocyte Adenosine Deaminase",
+      "Elevated Fetal Hemoglobin",
+      "Neutropenia",
+      "Thrombocytopenia",
+      "Nonimmune Hydrops Fetalis",
       "Short Stature",
-      "Congenital Malformations",
+      "Low Birth Weight",
+      "Craniofacial Anomalies",
+      "Hypertelorism",
+      "Cleft Lip and/or Palate",
+      "Thumb Anomalies",
       "Triphalangeal Thumb",
+      "Congenital Heart Defects",
+      "Genitourinary Anomalies",
       "Acute Myeloid Leukemia",
       "Myelodysplasia",
-      "Osteosarcoma"
+      "Osteosarcoma",
+      "Colon Cancer"
     ],
     "phenotype_categories": [
       "Hematological",
       "Growth",
       "Craniofacial",
       "Skeletal",
+      "Cardiovascular",
+      "Genitourinary",
       "Neoplastic"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
       "Growth",
       "Head and Neck",
       "Immune",
       "Limbs",
+      "Metabolism",
       "Musculoskeletal",
-      "Neoplasm"
+      "Neoplasm",
+      "Prenatal and Birth"
     ],
     "phenotype_ids": [
       "HP:0001972",
+      "HP:0001896",
       "HP:0012410",
+      "HP:0030270",
+      "HP:0011904",
+      "HP:0001875",
+      "HP:0001873",
+      "HP:0001790",
       "HP:0004322",
-      "HP:0004439",
+      "HP:0001518",
+      "HP:0000271",
+      "HP:0000316",
+      "HP:0000202",
+      "HP:0001172",
       "HP:0001199",
+      "HP:0001627",
+      "HP:0000119",
       "HP:0004808",
       "HP:0002863",
-      "HP:0002669"
+      "HP:0002669",
+      "HP:0003003"
     ],
     "frequencies": [
       "VERY_FREQUENT",
+      "31/37",
       "FREQUENT",
-      "OCCASIONAL"
+      "OCCASIONAL",
+      "53/286",
+      "41/286",
+      "19/286"
     ],
     "genes": [
       "RPS19",
@@ -141555,11 +141731,11 @@ window.searchData = [
     ],
     "source_file": "Diamond-Blackfan_Anemia.yaml",
     "page_url": "../pages/disorders/Diamond-Blackfan_Anemia.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 21,
     "num_pathophysiology": 6,
     "num_genes": 15,
     "num_treatments": 6,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -159952,19 +160128,27 @@ window.searchData = [
       "Palmoplantar Hyperhidrosis",
       "Skin Fissures",
       "Camptodactyly",
-      "Nail Clubbing"
+      "Nail Clubbing",
+      "Friction-Related Accentuation of the Keratoderma",
+      "Palmoplantar Blistering",
+      "Reduced Palmoplantar Temperature Sensation",
+      "Reduced Palmoplantar Tactile Sensation",
+      "Epidermal Acanthosis",
+      "Hypergranulosis"
     ],
     "phenotype_categories": [
       "Dermatologic",
       "Histologic",
       "Musculoskeletal",
-      "Nail"
+      "Nail",
+      "Neurologic"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Integument",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System"
     ],
     "phenotype_ids": [
       "HP:0007447",
@@ -159974,7 +160158,13 @@ window.searchData = [
       "HP:0007410",
       "HP:0031057",
       "HP:0100490",
-      "HP:0001217"
+      "HP:0001217",
+      "HP:0007497",
+      "HP:0007446",
+      "HP:0010829",
+      "HP:0010830",
+      "HP:0025092",
+      "HP:0025114"
     ],
     "frequencies": [
       "OBLIGATE",
@@ -159998,11 +160188,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Epidermolytic_Palmoplantar_Keratoderma_1.yaml",
     "page_url": "../pages/disorders/Epidermolytic_Palmoplantar_Keratoderma_1.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 14,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "9"
   },
   {
@@ -171156,19 +171346,28 @@ window.searchData = [
       "Ectropion",
       "Patchy macular hyperpigmentation",
       "Pruritus",
-      "Checkerboard parakeratosis with follicular plugging"
+      "Checkerboard parakeratosis with follicular plugging",
+      "Arthritis",
+      "Scleroderma-like changes of the hands",
+      "Ridged nail",
+      "Painful skin fissures",
+      "Lichenification",
+      "Psoriasiform epidermal hyperplasia",
+      "Superficial dermal perivascular lymphocytic infiltrate"
     ],
     "phenotype_categories": [
       "Dermatologic",
       "Ophthalmologic",
-      "Histopathologic"
+      "Histopathologic",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Head and Neck",
       "Immune",
       "Integument",
-      "Limbs"
+      "Limbs",
+      "Musculoskeletal"
     ],
     "phenotype_ids": [
       "HP:0007502",
@@ -171179,7 +171378,14 @@ window.searchData = [
       "HP:0000656",
       "HP:0000953",
       "HP:0000989",
-      "HP:0001036"
+      "HP:0001036",
+      "HP:0001369",
+      "HP:0100324",
+      "HP:0001807",
+      "HP:0031057",
+      "HP:0100725",
+      "HP:0025092",
+      "HP:0031190"
     ],
     "frequencies": [
       "FREQUENT",
@@ -171202,11 +171408,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Familial_Pityriasis_Rubra_Pilaris.yaml",
     "page_url": "../pages/disorders/Familial_Pityriasis_Rubra_Pilaris.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 16,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "31",
     "causal_graph_longest_path": "8"
   },
   {
@@ -205086,6 +205292,9 @@ window.searchData = [
       "Bilateral Early-Onset Cataract",
       "Nuclear Cataract",
       "Pulverulent Lens Opacities",
+      "Cortical Lens Opacities",
+      "Sutural Lens Opacities",
+      "Reduced Contrast Sensitivity",
       "Visual Impairment",
       "Persistent Hyperferritinemia",
       "Iron Deficiency Anemia"
@@ -205104,6 +205313,9 @@ window.searchData = [
       "HP:0000519",
       "HP:0100018",
       "HP:0010693",
+      "HP:0100019",
+      "HP:0010695",
+      "HP:0032036",
       "HP:0000505",
       "HP:0003281",
       "HP:0001891"
@@ -205129,11 +205341,11 @@ window.searchData = [
     ],
     "source_file": "Hereditary_Hyperferritinemia_With_Congenital_Cataracts.yaml",
     "page_url": "../pages/disorders/Hereditary_Hyperferritinemia_with_Congenital_Cataracts.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 9,
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "25",
     "causal_graph_longest_path": "9"
   },
   {
@@ -218113,7 +218325,14 @@ window.searchData = [
       "Abnormal Long Exercise Test",
       "Fatty Replacement of Skeletal Muscle",
       "Mildly Elevated Creatine Kinase",
-      "Cardiac Arrhythmia During Attacks"
+      "Cardiac Arrhythmia During Attacks",
+      "Myalgia",
+      "Exercise-Induced Muscle Fatigue",
+      "Prodromal Paresthesia",
+      "Skeletal Muscle Atrophy",
+      "Abnormal Muscle Fiber Morphology",
+      "Muscle Spasm",
+      "Falls"
     ],
     "phenotype_categories": [
       "Clinical",
@@ -218121,6 +218340,7 @@ window.searchData = [
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
+      "Constitutional",
       "Limbs",
       "Metabolism",
       "Musculoskeletal",
@@ -218136,7 +218356,14 @@ window.searchData = [
       "HP:0003457",
       "HP:0012548",
       "HP:0008180",
-      "HP:0011675"
+      "HP:0011675",
+      "HP:0003326",
+      "HP:0009020",
+      "HP:0003401",
+      "HP:0003202",
+      "HP:0004303",
+      "HP:0003394",
+      "HP:0002527"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -218179,12 +218406,12 @@ window.searchData = [
     ],
     "source_file": "Hypokalemic_Periodic_Paralysis.yaml",
     "page_url": "../pages/disorders/Hypokalemic_Periodic_Paralysis.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 16,
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 17,
-    "causal_graph_edges": "78",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "81",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypokalemic Tubulopathy and Deafness",
@@ -231870,14 +232097,24 @@ window.searchData = [
       "Pneumonia",
       "Hypoxemia",
       "Respiratory failure requiring assisted ventilation",
-      "Acute respiratory distress syndrome"
+      "Acute respiratory distress syndrome",
+      "Dyspnea",
+      "Cough",
+      "Fever",
+      "Ground-glass opacification",
+      "Pulmonary embolism"
     ],
     "phenotype_categories": [
       "Immunological",
-      "Respiratory"
+      "Respiratory",
+      "Constitutional",
+      "Imaging",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
       "Immune",
+      "Metabolism",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -231885,7 +232122,12 @@ window.searchData = [
       "HP:0002090",
       "HP:0012418",
       "HP:0004887",
-      "HP:0033677"
+      "HP:0033677",
+      "HP:0002094",
+      "HP:0012735",
+      "HP:0001945",
+      "HP:0025179",
+      "HP:0002204"
     ],
     "frequencies": [],
     "genes": [
@@ -231902,11 +232144,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Immunodeficiency_74_COVID-19-related_X-linked.yaml",
     "page_url": "../pages/disorders/Immunodeficiency_74,_COVID-19-Related,_X-Linked.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 10,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "7"
   },
   {
@@ -256261,12 +256503,20 @@ window.searchData = [
       "Premature Coronary Artery Atherosclerosis",
       "Myocardial Infarction",
       "Angina Pectoris",
-      "Calcific Aortic Valve Disease"
+      "Calcific Aortic Valve Disease",
+      "Cutaneous Xanthomas in Biallelic Disease",
+      "Supravalvular Aortic Stenosis",
+      "Increased Carotid Intima-Media Thickness in Childhood",
+      "Carotid Artery Stenosis",
+      "Peripheral Arterial Disease",
+      "Oligoarthritis",
+      "Polyarticular Arthritis"
     ],
     "phenotype_categories": [
       "Biochemical",
       "Physical",
-      "Cardiovascular"
+      "Cardiovascular",
+      "Musculoskeletal"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
@@ -256285,10 +256535,19 @@ window.searchData = [
       "HP:0001677",
       "HP:0001658",
       "HP:0001681",
-      "HP:0004380"
+      "HP:0004380",
+      "HP:0000991",
+      "HP:0004381",
+      "HP:0012273",
+      "HP:0100546",
+      "HP:0004950",
+      "HP:0040313",
+      "HP:0005764"
     ],
     "frequencies": [
-      "VERY_FREQUENT"
+      "VERY_FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
     ],
     "genes": [
       "LDLR"
@@ -256316,12 +256575,12 @@ window.searchData = [
     ],
     "source_file": "LDLR-Related_Familial_Hypercholesterolemia.yaml",
     "page_url": "../pages/disorders/LDLR-Related_Familial_Hypercholesterolemia.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 16,
     "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "44",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "56",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "LEF1 Ectodermal Dysplasia with Limb Malformations",
@@ -260328,7 +260587,15 @@ window.searchData = [
       "Heart septal defect",
       "Patent ductus arteriosus",
       "Congestive heart failure",
-      "Hypertrophic cardiomyopathy"
+      "Hypertrophic cardiomyopathy",
+      "Cardiomegaly",
+      "Right ventricular hypertrophy",
+      "Myofiber disarray",
+      "Myocardial fibrosis",
+      "Ventricular tachycardia",
+      "Restrictive cardiomyopathy",
+      "Cyanosis",
+      "Lethargy"
     ],
     "phenotype_categories": [
       "Cardiovascular",
@@ -260339,6 +260606,8 @@ window.searchData = [
       "Cardiovascular",
       "Digestive",
       "Growth",
+      "Integument",
+      "Nervous System",
       "Respiratory"
     ],
     "phenotype_ids": [
@@ -260349,9 +260618,19 @@ window.searchData = [
       "HP:0001671",
       "HP:0001643",
       "HP:0001635",
-      "HP:0001639"
+      "HP:0001639",
+      "HP:0001640",
+      "HP:0001667",
+      "HP:0031318",
+      "HP:0001685",
+      "HP:0004756",
+      "HP:0001723",
+      "HP:0000961",
+      "HP:0001254"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "OBLIGATE"
+    ],
     "genes": [
       "MYBPC3"
     ],
@@ -260364,12 +260643,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Left_Ventricular_Noncompaction_10.yaml",
     "page_url": "../pages/disorders/Left_Ventricular_Noncompaction_10.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 16,
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Left Ventricular Noncompaction 8",
@@ -260412,10 +260691,14 @@ window.searchData = [
     "phenotypes": [
       "Left Ventricular Noncompaction",
       "Dilated Cardiomyopathy",
+      "Hypertrophic Cardiomyopathy",
+      "Restrictive Cardiomyopathy",
       "Congestive Heart Failure",
       "Wolff-Parkinson-White Syndrome",
+      "Palpitations",
       "Thromboembolic Event",
       "Myocardial Fibrosis",
+      "Endocardial Fibroelastosis",
       "Fetal-Onset Cardiomegaly and Hydrops"
     ],
     "phenotype_categories": [
@@ -260430,16 +260713,17 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0030682",
       "HP:0001644",
+      "HP:0001639",
+      "HP:0001723",
       "HP:0001635",
       "HP:0001716",
+      "HP:0001962",
       "HP:0001907",
       "HP:0001685",
+      "HP:0001706",
       "HP:0001790"
     ],
-    "frequencies": [
-      "FREQUENT",
-      "VERY_RARE"
-    ],
+    "frequencies": [],
     "genes": [
       "PRDM16"
     ],
@@ -260454,12 +260738,12 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Left_Ventricular_Noncompaction_8.yaml",
     "page_url": "../pages/disorders/Left_Ventricular_Noncompaction_8.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 11,
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "34",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Legg-Calve-Perthes Disease",
@@ -266800,14 +267084,21 @@ window.searchData = [
       "Ventricular Fibrillation",
       "Syncope",
       "Cardiac Arrest",
-      "Sudden Cardiac Death"
+      "Sudden Cardiac Death",
+      "Palpitations",
+      "Arrhythmic Seizure",
+      "T-Wave Alternans",
+      "Absence of Hearing Impairment"
     ],
     "phenotype_categories": [
-      "Cardiovascular"
+      "Cardiovascular",
+      "Neurological",
+      "Auditory"
     ],
     "phenotype_hpo_categories": [
       "Cardiovascular",
       "Constitutional",
+      "Ear",
       "Nervous System"
     ],
     "phenotype_ids": [
@@ -266818,9 +267109,15 @@ window.searchData = [
       "HP:0001663",
       "HP:0001279",
       "HP:0001695",
-      "HP:0001645"
+      "HP:0001645",
+      "HP:0001962",
+      "HP:0001250",
+      "HP:0012266",
+      "HP:0000365"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "EXCLUDED"
+    ],
     "genes": [
       "KCNQ1",
       "NOS1AP"
@@ -266838,7 +267135,7 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Long_QT_Syndrome_1.yaml",
     "page_url": "../pages/disorders/Long_QT_Syndrome_1.html",
-    "num_phenotypes": 8,
+    "num_phenotypes": 12,
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 5,
@@ -310485,13 +310782,42 @@ window.searchData = [
       "Atopic dermatitis",
       "Pruritus",
       "Recurrent infections",
-      "Failure to thrive"
+      "Failure to thrive",
+      "Ichthyosis linearis circumflexa",
+      "Trichorrhexis invaginata",
+      "Sparse eyebrows",
+      "Sparse eyelashes",
+      "Ectropion",
+      "Hypernatremic dehydration",
+      "Hypothermia",
+      "Sepsis",
+      "Food allergy",
+      "Asthma",
+      "Allergic rhinitis",
+      "Urticaria",
+      "Angioedema",
+      "Increased circulating IgE concentration",
+      "Eosinophilia",
+      "Short stature",
+      "Chronic diarrhea",
+      "Hypoalbuminemia",
+      "Generalized aminoaciduria",
+      "Cutaneous squamous cell carcinoma"
     ],
     "phenotype_categories": [],
     "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Genitourinary",
       "Growth",
+      "Head and Neck",
       "Immune",
-      "Integument"
+      "Integument",
+      "Metabolism",
+      "Neoplasm",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0008064",
@@ -310500,9 +310826,33 @@ window.searchData = [
       "HP:0001047",
       "HP:0000989",
       "HP:0002719",
-      "HP:0001508"
+      "HP:0001508",
+      "HP:0025810",
+      "HP:0025811",
+      "HP:0045075",
+      "HP:0000653",
+      "HP:0000656",
+      "HP:0004906",
+      "HP:0002045",
+      "HP:0100806",
+      "HP:0500093",
+      "HP:0002099",
+      "HP:0003193",
+      "HP:0001025",
+      "HP:0100665",
+      "HP:0003212",
+      "HP:0001880",
+      "HP:0004322",
+      "HP:0002028",
+      "HP:0003073",
+      "HP:0002909",
+      "HP:0006739"
     ],
-    "frequencies": [],
+    "frequencies": [
+      "25/25",
+      "20/25",
+      "13/25"
+    ],
     "genes": [
       "SPINK5"
     ],
@@ -310524,12 +310874,12 @@ window.searchData = [
     ],
     "source_file": "Netherton_Syndrome.yaml",
     "page_url": "../pages/disorders/Netherton_syndrome.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 27,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Neuralgic Amyotrophy",
@@ -363926,34 +364276,109 @@ window.searchData = [
     "phenotypes": [
       "Periodic fever",
       "Chilblains",
+      "Annular cutaneous plaques",
+      "Neutrophilic dermatosis",
+      "Periorbital edema",
       "Lipodystrophy",
       "Panniculitis",
       "Joint contracture",
+      "Arthralgia",
       "Skeletal muscle atrophy",
-      "Microcytic anemia"
+      "Myositis",
+      "Chondritis",
+      "Clubbing of fingers",
+      "Microcytic anemia",
+      "Elevated C-reactive protein",
+      "Elevated erythrocyte sedimentation rate",
+      "Thrombocytosis",
+      "Hepatomegaly",
+      "Elevated hepatic transaminases",
+      "Splenomegaly",
+      "Lymphadenopathy",
+      "Failure to thrive",
+      "Growth delay",
+      "Hypertriglyceridemia",
+      "Acanthosis nigricans",
+      "Basal ganglia calcification",
+      "Neurodevelopmental delay",
+      "Episcleritis",
+      "Parotitis",
+      "Epididymitis",
+      "Antinuclear antibody positivity",
+      "Combined immunodeficiency",
+      "Combined immunodeficiency",
+      "Pulmonary arterial hypertension",
+      "Autoimmune hemolytic anemia"
     ],
     "phenotype_categories": [
       "Systemic",
       "Dermatologic",
       "Metabolic",
       "Musculoskeletal",
-      "Hematologic"
+      "Hematologic",
+      "Laboratory",
+      "Hepatic",
+      "Growth",
+      "Neurologic",
+      "Neurodevelopmental",
+      "Ophthalmologic",
+      "Gastrointestinal",
+      "Genitourinary",
+      "Immunologic",
+      "Cardiovascular"
     ],
     "phenotype_hpo_categories": [
       "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
       "Immune",
       "Integument",
+      "Limbs",
       "Metabolism",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0032323",
       "HP:0009710",
+      "HP:0025528",
+      "HP:0031234",
+      "HP:0100539",
       "HP:0009125",
       "HP:0012490",
       "HP:0034392",
+      "HP:0002829",
       "HP:0003202",
-      "HP:0001935"
+      "HP:0100614",
+      "HP:0100662",
+      "HP:0100759",
+      "HP:0001935",
+      "HP:0011227",
+      "HP:0003565",
+      "HP:0001894",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0001744",
+      "HP:0002716",
+      "HP:0001508",
+      "HP:0001510",
+      "HP:0002155",
+      "HP:0000956",
+      "HP:0002135",
+      "HP:0012758",
+      "HP:0100534",
+      "HP:0011850",
+      "HP:0000031",
+      "HP:0003493",
+      "HP:0005387",
+      "HP:0002092",
+      "HP:0001890"
     ],
     "frequencies": [],
     "genes": [
@@ -363974,11 +364399,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Proteasome_Associated_Autoinflammatory_Syndrome.yaml",
     "page_url": "../pages/disorders/Proteasome-Associated_Autoinflammatory_Syndrome.html",
-    "num_phenotypes": 7,
+    "num_phenotypes": 35,
     "num_pathophysiology": 6,
     "num_genes": 8,
     "num_treatments": 2,
-    "causal_graph_edges": "19",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "6"
   },
   {
@@ -460512,17 +460937,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4225,
+  "total_disorder_pages": 4226,
   "total_subtypes": 5192,
-  "total_disorders_and_subtypes": 9417,
-  "total_unique_evidence_sources": 63519,
-  "total_unique_publications": 59342,
+  "total_disorders_and_subtypes": 9418,
+  "total_unique_evidence_sources": 63567,
+  "total_unique_publications": 59387,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4223,
-  "total_unique_pathological_events": 27995,
+  "total_pathographs": 4224,
+  "total_unique_pathological_events": 28005,
   "total_modules": 242,
-  "total_research_reports": 4330,
+  "total_research_reports": 4331,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 161
