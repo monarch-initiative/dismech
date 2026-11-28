@@ -22250,7 +22250,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "7"
   },
   {
@@ -460525,6 +460525,6 @@ window.searchMetrics = {
   "total_research_reports": 4330,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 160
+  "total_groupings": 161
 };
 window.dispatchEvent(new Event('searchDataReady'));

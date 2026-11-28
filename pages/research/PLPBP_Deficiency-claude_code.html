@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLPBP Deficiency · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PLPBP Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PLPBP Deficiency</h1>
+                
+                <p class="report-subtitle">PLPBP Deficiency (Vitamin B6-Dependent Early-Onset Epilepsy, EPVB6D): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015005" target="_blank" rel="noopener noreferrer">MONDO:0015005</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-fable-5-2, claude-haiku-5-5</span>
+                    
+                    
+                    <span class="meta-chip">8 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>PLPBP Deficiency (Vitamin B6-Dependent Early-Onset Epilepsy, EPVB6D): Disease Characteristics Report</h1>
+<p><strong>Interpretation and scope.</strong> This report covers <a href="http://purl.obolibrary.org/obo/MONDO_0015005" target="_blank" rel="noopener noreferrer">MONDO:0015005</a> / <a href="https://bioregistry.io/OMIM:617290" target="_blank" rel="noopener noreferrer">OMIM:617290</a>, the autosomal recessive vitamin B6-dependent epilepsy caused by biallelic variants in <strong><em>PLPBP</em></strong> (<a href="https://bioregistry.io/HGNC:9457" target="_blank" rel="noopener noreferrer">HGNC:9457</a>, formerly <em>PROSC</em>; protein PLPHP). It does not cover the other B6-dependent epilepsies (<em>ALDH7A1</em>, <em>PNPO</em>, <em>ALDH4A1</em>, <em>ALPL</em>).</p>
+<p><strong>Retrieval limits that affect this report.</strong>
+- The GeneReviews chapter body, the PubMed HTML pages, OMIM and Orphanet could not be opened (bot checks). GeneReviews content is limited to its PubMed/MedGen summary.
+- Abstract quotes were retrieved through NCBI E-utilities and are exact but short (clauses of 125 characters or fewer).
+- Items marked <strong>[tool summary – verify]</strong> came through a machine-generated summary of a truncated page, not verbatim text.
+- Ontology IDs are given only where retrieved (MONDO, HGNC, HPO via Monarch, ortholog IDs). For GO, CL, UBERON, CHEBI and NCIT I give term labels only; the IDs were not retrieved and need a lookup.</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> PLPBP deficiency is a treatable vitamin B6-dependent early-onset epileptic encephalopathy caused by biallelic pathogenic variants in <em>PLPBP</em>, which encodes the pyridoxal 5'-phosphate homeostasis protein (PLPHP).
+- GeneReviews: "PLPBP deficiency is a treatable form of vitamin B6-dependent early-onset epileptic encephalopathy." (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK589231/" target="_blank" rel="noopener noreferrer">https://www.ncbi.nlm.nih.gov/books/NBK589231/</a>, posted 2023-02-16)
+- Seizures are "unresponsive to (or only partly responsive to) anti-seizure medications (ASMs)" "but typically show an immediate positive response to vitamin B6," (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).
+- The disease was defined in 2016 (Darin et al., <a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>) and confirmed in 2017 (Plecko et al., <a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>).</p>
+<p><strong>Identifiers</strong> (Monarch entity record, <a href="https://api.monarchinitiative.org/v3/api/entity/MONDO:0015005" target="_blank" rel="noopener noreferrer">https://api.monarchinitiative.org/v3/api/entity/MONDO:0015005</a>; HGNC, <a href="https://rest.genenames.org/fetch/symbol/PLPBP" target="_blank" rel="noopener noreferrer">https://rest.genenames.org/fetch/symbol/PLPBP</a>):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Identifier</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0015005" target="_blank" rel="noopener noreferrer">MONDO:0015005</a>, "epilepsy, early-onset, vitamin B6-dependent"</td>
+</tr>
+<tr>
+<td>MONDO parents</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0009945" target="_blank" rel="noopener noreferrer">MONDO:0009945</a> (pyridoxine-dependent epilepsy); <a href="http://purl.obolibrary.org/obo/MONDO_0957599" target="_blank" rel="noopener noreferrer">MONDO:0957599</a> (epilepsy, early-onset)</td>
+</tr>
+<tr>
+<td>OMIM phenotype / gene</td>
+<td>617290 / 604436</td>
+</tr>
+<tr>
+<td>MedGen / UMLS</td>
+<td>934599 / C4310632</td>
+</tr>
+<tr>
+<td>GARD</td>
+<td>0025048</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_0080769" target="_blank" rel="noopener noreferrer">DOID:0080769</a></td>
+</tr>
+<tr>
+<td>Gene</td>
+<td><em>PLPBP</em>, <a href="https://bioregistry.io/HGNC:9457" target="_blank" rel="noopener noreferrer">HGNC:9457</a>, NCBI Gene 11212, ENSG00000147471, UniProt O94903, 8p11.23</td>
+</tr>
+<tr>
+<td>GeneReviews</td>
+<td>NBK589231 (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>)</td>
+</tr>
+<tr>
+<td>Orphanet, ICD-10/11, MeSH</td>
+<td>Not retrieved; MONDO lists no ICD or NCIT cross-reference</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms.</strong> EPVB6D; PLPHP deficiency; PROSC deficiency; pyridoxal 5'-phosphate homeostasis protein deficiency; PLPBP-related vitamin B6-dependent epilepsy. UniProt labels the disease "Epilepsy, early-onset, 1, vitamin B6-dependent (EPEO1)" (<a href="https://rest.uniprot.org/uniprotkb/O94903.json" target="_blank" rel="noopener noreferrer">https://rest.uniprot.org/uniprotkb/O94903.json</a>).</p>
+<p><strong>Source type.</strong> All information is aggregated disease-level data from published case reports, case series, systematic reviews and curated resources. No EHR-derived data were used.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Causal factor.</strong> The disease is monogenic: germline biallelic loss-of-function or hypomorphic <em>PLPBP</em> variants.
+- Darin 2016: a "homozygous nonsense mutation in proline synthetase co-transcribed homolog (bacterial), PROSC" was found in two sibs. Sequencing of 29 further individuals with pyridoxine-responsive epilepsy "identified four additional children with biallelic PROSC mutations." (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>)</p>
+<p><strong>Genetic risk and severity factors.</strong>
+- Genotype class is the main determinant of severity: "biallelic truncating variants and homozygous variants were linked to severe phenotypes and/or early mortality." (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>)
+- Parental consanguinity was present in most families in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>, full text).
+- A French-Canadian founder allele exists (section 9).
+- No modifier genes or susceptibility loci have been reported.</p>
+<p><strong>Environmental risk factors.</strong> None cause the disease. Factors that worsen expression:
+- Withdrawal of or delay in B6 treatment: "Two patients underwent a controlled pyridoxine withdrawal with signs of encephalopathy within a couple of days." (<a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>)
+- Intercurrent viral illness, which preceded an episodic crisis in one child (<a href="https://pubmed.ncbi.nlm.nih.gov/42563912/" target="_blank" rel="noopener noreferrer">PMID 42563912</a>).
+- Some anti-seizure medications: "Several ASMs (such as carbamazepine, valproate, phenytoin, and phenobarbitone) can cause a low plasma concentration of PLP." (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>)</p>
+<p><strong>Protective factors.</strong>
+- Genetic: missense and compound heterozygous genotypes are associated "with an attenuated phenotype," (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>).
+- Environmental: early supraphysiological B6. In the founder-variant families, "both patients, who are alive, had a history of prenatal supplements taken by their mothers as antiemetic medication" "with high doses of pyridoxine." (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>). This is an observational association from a handful of patients.</p>
+<p><strong>Gene–environment interaction.</strong> The phenotype depends on B6 supply. Patients have "a lifelong dependency on supraphysiological vitamin B6 supply." (<a href="https://pubmed.ncbi.nlm.nih.gov/30671974/" target="_blank" rel="noopener noreferrer">PMID 30671974</a>). In cell models, B6 vitamer imbalance scaled with the pyridoxine or pyridoxamine concentration in the medium (<a href="https://pubmed.ncbi.nlm.nih.gov/37451483/" target="_blank" rel="noopener noreferrer">PMID 37451483</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Frequencies come from three pooled sources, which overlap in the patients they count:
+- <strong>A</strong> = systematic review plus multicentre series, n=54 (Alsini 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>).
+- <strong>B</strong> = review of 54 individuals (Alsubhi 2022, <a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>, Table 1).
+- <strong>C</strong> = HPO annotations from the 7 original patients (Monarch, citing <a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Suggested HPO term</th>
+<th>Type</th>
+<th>Onset</th>
+<th>Frequency</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Neonatal seizures, drug-resistant, B6-responsive</td>
+<td>Neonatal seizure; Vitamin B6-responsive seizures (IDs not retrieved)</td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>A: onset in first 24 h 55.5%, first week 76%. B: neonatal onset 49/54 (91%), infantile 3/54 (6%)</td>
+<td>Severe; episodic; breakthrough with fever or missed doses</td>
+</tr>
+<tr>
+<td>Tonic seizure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032792" target="_blank" rel="noopener noreferrer">HP:0032792</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 4/4 <strong>[tool summary – verify]</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Bilateral tonic-clonic seizure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002069" target="_blank" rel="noopener noreferrer">HP:0002069</a></td>
+<td>Sign</td>
+<td>Neonatal–infantile</td>
+<td>C: 5/7 <strong>[tool summary – verify]</strong>; "Generalized tonic-clonic seizures were commonly noted." (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Myoclonic seizure / myoclonus</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0032794" target="_blank" rel="noopener noreferrer">HP:0032794</a> / <a href="http://purl.obolibrary.org/obo/HP_0001336" target="_blank" rel="noopener noreferrer">HP:0001336</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 3/7</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Clonic seizure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0020221" target="_blank" rel="noopener noreferrer">HP:0020221</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 1/7 <strong>[tool summary – verify]</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Epileptic (infantile) spasms</td>
+<td>Infantile spasms (ID not retrieved)</td>
+<td>Sign</td>
+<td>Infancy</td>
+<td>4/12 in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>)</td>
+<td>Can occur without hypsarrhythmia (<a href="https://pubmed.ncbi.nlm.nih.gov/36577449/" target="_blank" rel="noopener noreferrer">PMID 36577449</a>)</td>
+</tr>
+<tr>
+<td>EEG burst suppression</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0010851" target="_blank" rel="noopener noreferrer">HP:0010851</a></td>
+<td>EEG</td>
+<td>Neonatal</td>
+<td>B: 21/54 (39%); 6/11 (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>)</td>
+<td>Interictal EEG can be near normal (<a href="https://pubmed.ncbi.nlm.nih.gov/36577449/" target="_blank" rel="noopener noreferrer">PMID 36577449</a>)</td>
+</tr>
+<tr>
+<td>Suspected fetal seizures / abnormal fetal movements</td>
+<td>Fetal distress <a href="http://purl.obolibrary.org/obo/HP_0025116" target="_blank" rel="noopener noreferrer">HP:0025116</a>; abnormal fetal movement (ID not retrieved)</td>
+<td>Prenatal sign</td>
+<td>Prenatal</td>
+<td>B: 9/54 (17%); fetal distress C: 4/7</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Prematurity</td>
+<td>Premature birth (ID not retrieved)</td>
+<td>Sign</td>
+<td>Perinatal</td>
+<td>Listed among "Common clinical features" (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>)</td>
+<td>Proposed diagnostic clue (<a href="https://pubmed.ncbi.nlm.nih.gov/33728241/" target="_blank" rel="noopener noreferrer">PMID 33728241</a>)</td>
+</tr>
+<tr>
+<td>Microcephaly</td>
+<td>Secondary microcephaly <a href="http://purl.obolibrary.org/obo/HP_0005484" target="_blank" rel="noopener noreferrer">HP:0005484</a>; congenital microcephaly also reported (<a href="https://pubmed.ncbi.nlm.nih.gov/36308585/" target="_blank" rel="noopener noreferrer">PMID 36308585</a>)</td>
+<td>Sign</td>
+<td>Congenital/postnatal</td>
+<td>B: 20/54 (37%)</td>
+<td>Absent in milder cohort: "All four patients were normocephalic" (<a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>)</td>
+</tr>
+<tr>
+<td>Global developmental delay / intellectual disability / autism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" rel="noopener noreferrer">HP:0001263</a>, <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" rel="noopener noreferrer">HP:0001249</a></td>
+<td>Developmental</td>
+<td>Infancy onward</td>
+<td>B: 30/46 (65%); GeneReviews: "more than 50%"</td>
+<td>Mild to severe; main driver of long-term disability</td>
+</tr>
+<tr>
+<td>Delayed or absent speech</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" rel="noopener noreferrer">HP:0000750</a>, <a href="http://purl.obolibrary.org/obo/HP_0002465" target="_blank" rel="noopener noreferrer">HP:0002465</a></td>
+<td>Developmental</td>
+<td>Childhood</td>
+<td>C: 5/6</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Motor delay</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" rel="noopener noreferrer">HP:0001270</a></td>
+<td>Developmental</td>
+<td>Infancy</td>
+<td>C: 4/6</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Hypotonia / hypertonia</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" rel="noopener noreferrer">HP:0001252</a> / <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" rel="noopener noreferrer">HP:0001276</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 1/7 and 3/7; "most commonly mild hypotonia" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Irritability / encephalopathy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" rel="noopener noreferrer">HP:0000737</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 3/4 <strong>[tool summary – verify]</strong></td>
+<td>—</td>
+</tr>
+<tr>
+<td>Respiratory insufficiency / apnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" rel="noopener noreferrer">HP:0002093</a> / <a href="http://purl.obolibrary.org/obo/HP_0002104" target="_blank" rel="noopener noreferrer">HP:0002104</a></td>
+<td>Sign</td>
+<td>Neonatal</td>
+<td>C: 3/7 and 1/7; 3/12 (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>)</td>
+<td>Cause of early death</td>
+</tr>
+<tr>
+<td>Movement disorder (dystonic/hyperkinetic paroxysms, opsoclonus-myoclonus-like, tremor)</td>
+<td>Paroxysmal dyskinesia; Opsoclonus (IDs not retrieved)</td>
+<td>Sign</td>
+<td>Infancy–childhood</td>
+<td>B: 4/54 (7%)</td>
+<td>PMIDs 36324377, 42563912, 30668673</td>
+</tr>
+<tr>
+<td>Anxiety states, behavioural change</td>
+<td>Anxiety (ID not retrieved)</td>
+<td>Behavioural</td>
+<td>Adolescence</td>
+<td>Single reports</td>
+<td>PMIDs 31687261, 42563912</td>
+</tr>
+<tr>
+<td>Lactic acidaemia / metabolic acidosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" rel="noopener noreferrer">HP:0002151</a> / <a href="http://purl.obolibrary.org/obo/HP_0001942" target="_blank" rel="noopener noreferrer">HP:0001942</a></td>
+<td>Lab</td>
+<td>Neonatal</td>
+<td>C: 4/6 and 5/7; 21/54 (39%) <strong>[tool summary – verify]</strong></td>
+<td>Mimics mitochondrial disease</td>
+</tr>
+<tr>
+<td>Hyperglycinaemia</td>
+<td>Hyperglycinemia (ID not retrieved)</td>
+<td>Lab</td>
+<td>Neonatal</td>
+<td>13/54 (24%) <strong>[tool summary – verify]</strong></td>
+<td>Mimics glycine encephalopathy</td>
+</tr>
+<tr>
+<td>Low CSF PLP and pyridoxal</td>
+<td>No specific HPO term retrieved</td>
+<td>Lab</td>
+<td>Pre-treatment</td>
+<td>"Pre-treatment cerebrospinal fluid samples showed low PLP concentrations" (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Brain MRI abnormality</td>
+<td>—</td>
+<td>Imaging</td>
+<td>Neonatal</td>
+<td>A: 65%</td>
+<td>Detailed below</td>
+</tr>
+<tr>
+<td>White matter abnormality / delayed myelination</td>
+<td>Abnormal cerebral white matter morphology (ID not retrieved)</td>
+<td>Imaging</td>
+<td>—</td>
+<td>A: 54%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Periventricular or temporal cysts</td>
+<td>Periventricular cysts (ID not retrieved)</td>
+<td>Imaging</td>
+<td>—</td>
+<td>A: 27%</td>
+<td>Marker of the founder variant</td>
+</tr>
+<tr>
+<td>Simplified gyral pattern / broad gyri, shallow sulci</td>
+<td>Simplified gyral pattern (ID not retrieved)</td>
+<td>Imaging</td>
+<td>—</td>
+<td>A: 44%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Corpus callosum anomaly</td>
+<td>Thin corpus callosum (ID not retrieved)</td>
+<td>Imaging</td>
+<td>—</td>
+<td>A: 15.4%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Brain atrophy / ventriculomegaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012444" target="_blank" rel="noopener noreferrer">HP:0012444</a> / <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" rel="noopener noreferrer">HP:0002119</a></td>
+<td>Imaging</td>
+<td>—</td>
+<td>C: 1/7 (atrophy)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Minor facial dysmorphism</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" rel="noopener noreferrer">HP:0000219</a>, <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" rel="noopener noreferrer">HP:0000343</a>, <a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" rel="noopener noreferrer">HP:0000582</a>, <a href="http://purl.obolibrary.org/obo/HP_0000629" target="_blank" rel="noopener noreferrer">HP:0000629</a></td>
+<td>Sign</td>
+<td>—</td>
+<td>C: 1–2 of 4 each</td>
+<td>Non-specific</td>
+</tr>
+<tr>
+<td>Esodeviation</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0020045" target="_blank" rel="noopener noreferrer">HP:0020045</a></td>
+<td>Sign</td>
+<td>—</td>
+<td>C: 1/4</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Quality of life.</strong> No study using a standardised instrument (EQ-5D, SF-36, PROMIS) was retrieved. Impact is inferred from the developmental burden, the need for adjunct ASMs in "almost 60%" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>), and lifelong daily treatment.</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<p><strong>Causal gene.</strong> <em>PLPBP</em> (<a href="https://bioregistry.io/HGNC:9457" target="_blank" rel="noopener noreferrer">HGNC:9457</a>; previous symbol <em>PROSC</em>, "proline synthetase co-transcribed (bacterial homolog)"), at 8p11.23. Reference transcript NM_007198.4. The protein has 275 residues, with PLP bound at Lys47 as a Schiff base (UniProt O94903). The human and mouse genes were cloned in 1999 (<a href="https://pubmed.ncbi.nlm.nih.gov/10496079/" target="_blank" rel="noopener noreferrer">PMID 10496079</a>).</p>
+<p><strong>Variant spectrum.</strong>
+- "The most common type of variant was missense variants (48%)," "with the variant c.370-373del being the most frequently reported (18.5%)." (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>)
+- Truncating variants: p.Ser78Ter, p.Gln71Ter, c.207+1G&gt;A, c.320-2A&gt;G, c.370_373del (p.Asp124Lysfs*2) (PMIDs 27912044, 30668673).
+- Missense variants: p.Pro40Leu, p.Arg41Gln, p.Glu67Lys, p.Tyr69Cys, p.Pro87Leu, p.Ile94Phe, p.Thr116Ile, p.Leu175Pro, p.Arg205Gln, p.Gly224Ala, p.Arg241Gln (PMIDs 27912044, 28391250, 30668673).
+- More recent: p.Ala232Val (<a href="https://pubmed.ncbi.nlm.nih.gov/36308585/" target="_blank" rel="noopener noreferrer">PMID 36308585</a>); p.His92Arg and p.Ala107Thr (<a href="https://pubmed.ncbi.nlm.nih.gov/40976369/" target="_blank" rel="noopener noreferrer">PMID 40976369</a>); p.Val235Gly (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>); c.596dup (<a href="https://pubmed.ncbi.nlm.nih.gov/42307184/" target="_blank" rel="noopener noreferrer">PMID 42307184</a>); a CA-duplication frameshift (<a href="https://pubmed.ncbi.nlm.nih.gov/33425341/" target="_blank" rel="noopener noreferrer">PMID 33425341</a>).</p>
+<p><strong>ClinVar</strong> (E-utilities query, November 2026): 372 records for <em>PLPBP</em>; 78 flagged pathogenic, most of which are large multi-gene copy-number variants spanning 8p; 118 VUS. The likely-pathogenic count could not be retrieved. Examples of gene-specific pathogenic entries: NM_007198.4:c.47_48dup (p.Leu17fs) and an intragenic deletion (VCV 3245576).</p>
+<p><strong>Population frequency and constraint.</strong>
+- gnomAD (GRCh38): pLI ≈ 0.00002, LOEUF 0.97, missense o/e 0.87 (<a href="https://gnomad.broadinstitute.org" target="_blank" rel="noopener noreferrer">https://gnomad.broadinstitute.org</a>). The gene tolerates heterozygous loss of function, as expected for a recessive disorder.
+- Per-variant allele frequencies were not retrieved.</p>
+<p><strong>Origin and consequence.</strong>
+- All reported variants are germline and inherited; no somatic or mosaic cases were retrieved.
+- The functional mechanism is loss of function. p.Ser78Ter and p.Leu175Pro gave undetectable protein in patient fibroblasts (UniProt, citing <a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>).
+- Recombinant mutant studies: "The p.Leu175Pro mutation grossly misfolded PLPHP." "PLPHP stability was decreased in p.Arg241Gln, p.Pro40Leu, and p.Arg205Gln mutants (thermofluor assays)." "The p.Arg241Gln and p.Tyr69Cys mutants respectively lacked PLP or had a decreased amount of this cofactor." (<a href="https://pubmed.ncbi.nlm.nih.gov/29689137/" target="_blank" rel="noopener noreferrer">PMID 29689137</a>)</p>
+<p><strong>Modifier genes, epigenetics, chromosomal abnormalities.</strong> None reported. The large 8p copy-number variants in ClinVar are contiguous-gene events, not the cause of this recessive disease.</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental toxins and infectious agents:</strong> not applicable as causes. Febrile or viral illness triggers breakthrough seizures or crises (PMIDs 28391250, 42563912).</li>
+<li><strong>Lifestyle and nutrition:</strong> the disease is a dependency on pharmacological B6, not a dietary deficiency. Adherence is the critical factor.</li>
+<li><strong>Drugs:</strong> enzyme-inducing ASMs and valproate can lower plasma PLP (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain</h3>
+<ol>
+<li><strong>Biallelic germline <em>PLPBP</em> variants</strong> result in absent, misfolded, unstable or PLP-binding-deficient PLPHP. <em>Demonstrated in vitro and in patient fibroblasts</em> (PMIDs 29689137, 27912044).</li>
+<li><strong>Loss of PLPHP leads to disturbed intracellular B6 vitamer homeostasis.</strong> PLP falls, and pyridoxine 5'-phosphate (PNP) and pyridoxamine 5'-phosphate (PMP) accumulate. <em>Demonstrated in patient fibroblasts, HEK293 knockouts and zebrafish</em> (PMIDs 30668673, 37451483). The original report found the opposite PLP direction: "cultured fibroblasts showed excessive PLP accumulation." (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>); the discrepancy is unresolved.</li>
+<li><strong>Two proximate causes of the PLP deficit:</strong></li>
+<li>3a. Reduced PNPO flux: tracer experiments "confirmed lower pyridox(am)ine 5'-phosphate oxidase activity" (<a href="https://pubmed.ncbi.nlm.nih.gov/37451483/" target="_blank" rel="noopener noreferrer">PMID 37451483</a>). <em>Demonstrated in cells.</em></li>
+<li>3b. Increased PLP hydrolysis: "indicating increased PLP hydrolysis to pyridoxal in PLPHP-deficient cells." "This effect could be partly counteracted by inactivation of pyridoxal phosphatase." (<a href="https://pubmed.ncbi.nlm.nih.gov/37451483/" target="_blank" rel="noopener noreferrer">PMID 37451483</a>). This fits the proposed role of PLPHP in "supplying this cofactor to apoenzymes while minimizing any toxic side reactions." (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>). <em>The carrier/chaperone function itself is inferred.</em></li>
+<li><strong>PLP shortage leads to reduced activity of PLP-dependent enzymes in brain</strong>: "evidence of reduced activity of PLP-dependent enzymes." in pre-treatment CSF (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>). The mechanism then branches:</li>
+<li><strong>Branch A, neurotransmitters.</strong> Impaired glutamate decarboxylase and aromatic L-amino acid decarboxylase (AADC) results in reduced GABA and altered monoamine synthesis. Zebrafish "had disruptions in amino acid metabolism as well as GABA and catecholamine biosynthesis," (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>). In humans, AADC-like metabolites were found in one patient (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>) and raised 3-O-methyldopa and 5-hydroxytryptophan in some (<a href="https://pubmed.ncbi.nlm.nih.gov/32980745/" target="_blank" rel="noopener noreferrer">PMID 32980745</a>). This leads to neuronal hyperexcitability, seizures, burst suppression and movement disorder. <em>The GABA link is demonstrated in zebrafish and inferred in humans.</em></li>
+<li><strong>Branch B, glycine.</strong> Impaired glycine cleavage (a PLP-dependent system) results in hyperglycinaemia. <em>Inferred in humans.</em> In <em>E. coli</em>, PNP inhibits the glycine cleavage system (<a href="https://pubmed.ncbi.nlm.nih.gov/31677193/" target="_blank" rel="noopener noreferrer">PMID 31677193</a>, title only).</li>
+<li><strong>Branch C, mitochondria.</strong> PLPHP is partly mitochondrial. Its loss has "a distinct effect on mitochondrial PLP and PMP," "suggesting impaired activity of mitochondrial transaminases." (<a href="https://pubmed.ncbi.nlm.nih.gov/37451483/" target="_blank" rel="noopener noreferrer">PMID 37451483</a>). This leads to "Lactate and pyruvate accumulation along with the decrease of tricarboxylic acid cycle intermediates" (<a href="https://pubmed.ncbi.nlm.nih.gov/37451483/" target="_blank" rel="noopener noreferrer">PMID 37451483</a>), and clinically to lactic acidaemia and a mitochondrial-encephalopathy-like picture. <em>Demonstrated in HEK293 cells and yeast; inferred as the cause of patient lactate elevation.</em></li>
+<li><strong>Prenatal and early postnatal PLP shortage in developing brain</strong> leads to under-development: simplified gyri, white-matter abnormality, cysts and microcephaly. <em>Inferred from imaging</em> (PMIDs 41671913, 33977028).</li>
+<li><strong>Uncontrolled seizures plus the structural deficit</strong> result in developmental delay and intellectual disability, and in the most severe genotypes respiratory failure and early death (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>).</li>
+<li><strong>Pharmacological pyridoxine or PLP</strong> partly restores PLP supply to apoenzymes, which results in seizure control. Rescue is incomplete where prenatal injury has occurred or residual protein is absent (PMIDs 33977028, 30525118).</li>
+</ol>
+<h3>Supporting detail</h3>
+<ul>
+<li><strong>Protein structure.</strong> A (β/α)8 TIM-barrel fold with PLP bound to Lys47, shown by homology modelling (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>). "Normal PLPHP is largely a monomer with PLP bound through a Schiff-base linkage." (<a href="https://pubmed.ncbi.nlm.nih.gov/29689137/" target="_blank" rel="noopener noreferrer">PMID 29689137</a>). Cross-linking mass spectrometry found "an unexpected dimeric assembly of PLPBP." (<a href="https://pubmed.ncbi.nlm.nih.gov/31825581/" target="_blank" rel="noopener noreferrer">PMID 31825581</a>).</li>
+<li><strong>Localisation.</strong> Cytosolic and mitochondrial: "the first empirical evidence that PLPHP is localized in mitochondria" (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>).</li>
+<li><strong>Proteomics.</strong> A PLPBP-knockout cell line showed "upregulation of several cytoskeleton- and cell division-associated proteins." (<a href="https://pubmed.ncbi.nlm.nih.gov/31825581/" target="_blank" rel="noopener noreferrer">PMID 31825581</a>).</li>
+<li><strong>Possible additional function.</strong> RNA binding, conserved between bacterial YggS and the human protein: "it is also observed with human PLP-BP." (<a href="https://pubmed.ncbi.nlm.nih.gov/39604152/" target="_blank" rel="noopener noreferrer">PMID 39604152</a>). Disease relevance is unknown.</li>
+<li><strong>Metabolomics.</strong> B6 vitamer profiling by mass spectrometry in fibroblasts, HEK293 cells and zebrafish (PMIDs 30668673, 37451483). No specific patient biomarker has emerged.</li>
+<li><strong>Not reported:</strong> immune involvement, epigenetic changes, patient transcriptomics, single-cell or spatial studies, lipidomics, CRISPR screens.</li>
+</ul>
+<p><strong>Suggested ontology terms (labels; IDs to be verified).</strong>
+- GO biological process: pyridoxal phosphate metabolic process; vitamin B6 metabolic process; gamma-aminobutyric acid biosynthetic process; catecholamine biosynthetic process; glycine catabolic process; tricarboxylic acid cycle.
+- GO molecular function: pyridoxal phosphate binding.
+- GO cellular component: cytosol; mitochondrion.
+- CL: neuron; GABAergic neuron; fibroblast (experimental cell type).
+- CHEBI: pyridoxal 5'-phosphate; pyridoxine; pyridoxine 5'-phosphate; pyridoxamine 5'-phosphate; pyridoxal; 4-pyridoxic acid; glycine; lactate; GABA.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> brain (central nervous system). Cerebral cortex (gyral simplification, atrophy), cerebral white matter (delayed myelination), periventricular and temporal regions (cysts), corpus callosum (PMIDs 41671913, 33977028).</li>
+<li><strong>Laterality:</strong> imaging findings are described as diffuse or bilateral. No lateralisation data were retrieved.</li>
+<li><strong>Secondary:</strong> respiratory failure in severe neonatal cases (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>); systemic metabolic acidosis.</li>
+<li><strong>Other tissues:</strong> a transfection study suggested a role "in cell division" "as well as proper muscle function." (<a href="https://pubmed.ncbi.nlm.nih.gov/31825581/" target="_blank" rel="noopener noreferrer">PMID 31825581</a>). This is in vitro only, with no clinical myopathy described.</li>
+<li><strong>Cell and subcellular level:</strong> neurons (inferred); cytosol and mitochondria (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>).</li>
+<li><strong>Suggested UBERON labels (IDs not retrieved):</strong> brain; cerebral cortex; white matter of cerebral hemisphere; corpus callosum; temporal lobe.</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset.</strong> Prenatal in a minority (suspected fetal seizures in 17%, <a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>). Otherwise acute and neonatal: "the majority occurring within the first 24 h of life (55.5%) or the first week of life (76%)." (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>).</li>
+<li><strong>Late onset.</strong> Rare. Onset at 3 months (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>), and at 8 months with diagnosis at 10 years (<a href="https://pubmed.ncbi.nlm.nih.gov/40976369/" target="_blank" rel="noopener noreferrer">PMID 40976369</a>). One patient was untreated until 16 years, with "only mild cognitive impairment and an early-onset, well-controlled epilepsy." (<a href="https://pubmed.ncbi.nlm.nih.gov/31687261/" target="_blank" rel="noopener noreferrer">PMID 31687261</a>).</li>
+<li><strong>Course.</strong> Chronic and lifelong. Seizures are episodic with treatment-induced remission and relapse on withdrawal or with illness. Neurodevelopmental impairment is largely static rather than neurodegenerative. No formal staging exists.</li>
+<li><strong>Critical window.</strong> Prenatal and early neonatal: "treatment with pyridoxine and/or Pyridoxal-5-phophate has to be started immediately" (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>). Even so, "Even with early appropriate treatment, neurological outcome of our patient is still poor." in the founder genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive (<a href="http://purl.obolibrary.org/obo/HP_0000007" target="_blank" rel="noopener noreferrer">HP:0000007</a>). Sibs have "a 25% chance of being affected," (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</li>
+<li><strong>Penetrance:</strong> apparently complete for biallelic pathogenic genotypes; no unaffected biallelic individuals were retrieved.</li>
+<li><strong>Expressivity:</strong> highly variable. "PLPBP mutations cause variable phenotypes of developmental and epileptic encephalopathy." (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>).</li>
+<li><strong>Anticipation, germline mosaicism:</strong> not reported.</li>
+<li><strong>Prevalence and incidence:</strong> unknown and ultra-rare. Published cases: about 30 by 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/33425341/" target="_blank" rel="noopener noreferrer">PMID 33425341</a>), 54 by 2022 (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>), 54 in the 2026 systematic set (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>). No population estimate was retrieved.</li>
+<li><strong>Diagnostic yield:</strong> 4 of 700 patients in a developmental and epileptic encephalopathy cohort (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>); 4 of 29 with unexplained pyridoxine-responsive epilepsy (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>).</li>
+<li><strong>Founder effect:</strong> c.370_373del (p.Asp124Lysfs*2) in the Saguenay–Lac-St-Jean region of Quebec. "Haplotype analysis showed a single shared profile for the affected persons and their parents," (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>).</li>
+<li><strong>Consanguinity:</strong> frequent in reported families (PMIDs 27912044, 30668673, 33425341).</li>
+<li><strong>Carrier frequency:</strong> not established.</li>
+<li><strong>Geography and ancestry:</strong> pan-ethnic. Reports come from Europe, Canada, Japan, China, Pakistan, India, Turkey, Saudi Arabia/Oman and Iran (PMIDs 30668673, 30525118, 31737911, 33425341, 34316313, 36308585, 31831980, 42307184).</li>
+<li><strong>Sex ratio:</strong> 6 males to 6 females in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>); no sex bias is expected.</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>No specific biomarker exists.</strong> "Unlike other causes of vitamin B6-dependent epilepsies; however, a specific biomarker for this disorder has yet to be identified." (<a href="https://pubmed.ncbi.nlm.nih.gov/33728241/" target="_blank" rel="noopener noreferrer">PMID 33728241</a>)</p>
+<p><strong>Laboratory findings.</strong>
+- Pre-treatment CSF PLP is low (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a>). CSF pyridoxal may be more specific: "Low cerebrospinal fluid pyridoxal concentrations may be a better indicator of pyridoxal 5'-phosphate deficiency" (<a href="https://pubmed.ncbi.nlm.nih.gov/32980745/" target="_blank" rel="noopener noreferrer">PMID 32980745</a>).
+- Plasma B6 vitamers on treatment are not discriminating: "Vitamin B6 plasma profiles on pyridoxine did not enable the differentiation of patients with PROSC mutations." (<a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>). One untreated patient had plasma PLP of 1.1 nM against a reference above 20.5 (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>, full text).
+- Lactate and glycine are often raised: "Hyperglycinemia and hyperlactatemia are the most consistently observed biochemical abnormalities" (<a href="https://pubmed.ncbi.nlm.nih.gov/31741821/" target="_blank" rel="noopener noreferrer">PMID 31741821</a>).
+- Negative markers help exclude other causes: urinary α-aminoadipic semialdehyde is normal, which distinguishes it from <em>ALDH7A1</em> deficiency (<a href="https://pubmed.ncbi.nlm.nih.gov/36577449/" target="_blank" rel="noopener noreferrer">PMID 36577449</a>).</p>
+<p><strong>EEG.</strong> Burst suppression, focal or multifocal discharges, or diffuse slowing (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>). The EEG can be near normal.</p>
+<p><strong>MRI.</strong> Abnormal in about 65% (section 3). Magnetic resonance spectroscopy showed a lactate doublet in 2 patients (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>). Temporal cysts are a marker of the founder genotype (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>).</p>
+<p><strong>Genetic testing.</strong>
+- The diagnosis is established by "biallelic pathogenic variants in PLPBP identified by molecular genetic testing." (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).
+- Recommended approach: an epilepsy or metabolic gene panel that includes <em>PLPBP</em>, or exome/genome sequencing. Older panels may omit the gene: a child with a "previous nondiagnostic epilepsy gene panel" was diagnosed by exome (<a href="https://pubmed.ncbi.nlm.nih.gov/42563912/" target="_blank" rel="noopener noreferrer">PMID 42563912</a>). "PLPHP should be included systematically in NGS epilepsy gene panels." (<a href="https://pubmed.ncbi.nlm.nih.gov/36577449/" target="_blank" rel="noopener noreferrer">PMID 36577449</a>).
+- Copy-number analysis is relevant because an intragenic deletion is recorded in ClinVar.
+- Karyotype, FISH, mitochondrial DNA and repeat-expansion testing are not indicated.</p>
+<p><strong>Therapeutic trial.</strong> Clinical and EEG response to pyridoxine or PLP supports the diagnosis, but the response may be partial.</p>
+<p><strong>Clinical criteria.</strong> None exist; this is consistent with GeneReviews (per search summary of NBK589231).</p>
+<p><strong>Differential diagnosis.</strong>
+- <em>ALDH7A1</em> and <em>PNPO</em> deficiency: the phenotype "was indistinguishable" "from ALDH7A1 and PNPO deficiency." (<a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>).
+- Mitochondrial encephalopathy (lactate), glycine encephalopathy (glycine), AADC deficiency, folinic acid-responsive seizures, hypoxic-ischaemic encephalopathy, opsoclonus-myoclonus-ataxia syndrome (PMIDs 31741821, 30668673, 42563912).</p>
+<p><strong>Screening.</strong>
+- No biochemical newborn screening exists.
+- Pyridoxine-dependent epilepsy as a group is included in genomic newborn-screening studies (NCT05687474 Baby Detect; NCT03655223 Early Check); whether <em>PLPBP</em> itself is on those panels was not verified.
+- Cascade testing of sibs and prenatal diagnosis are available (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</p>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality.</strong> 8 of 54 (15%) died, at ages from 2 weeks to 16 months (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>, Table 1). Deaths cluster in truncating genotypes with a mitochondrial-like neonatal presentation and respiratory failure (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>). No survival curves or life-expectancy data exist; the oldest described patients are adults aged 30 and 35 (PMIDs 28391250, 36324377).</li>
+<li><strong>Seizure outcome.</strong> Seizure-free on maintenance treatment in 31 of 45 (69%) (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>). "almost 60% of individuals require adjunct ASMs" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</li>
+<li><strong>Neurodevelopment.</strong> Developmental delay, intellectual disability or autism in 30 of 46 (65%) (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>). "more than two thirds of patients were classified as having moderate to severe disease." (<a href="https://pubmed.ncbi.nlm.nih.gov/41671913/" target="_blank" rel="noopener noreferrer">PMID 41671913</a>). Normal outcome is possible: "Three had favourable outcome with normal intellectual properties at age 12.5, 15.5 and 30 years, respectively," (<a href="https://pubmed.ncbi.nlm.nih.gov/28391250/" target="_blank" rel="noopener noreferrer">PMID 28391250</a>).</li>
+<li><strong>Prognostic factors.</strong> Genotype (truncating or homozygous is worse; missense or compound heterozygous is milder), brain malformation on MRI, prenatal onset, and treatment delay (PMIDs 41671913, 30668673, 33977028). Early treatment does not guarantee a normal outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/30525118/" target="_blank" rel="noopener noreferrer">PMID 30525118</a>).</li>
+<li><strong>Prognostic biomarkers.</strong> None: "metabolic biomarkers for early detection and prognosis of PLPBP deficiency are currently still lacking." (<a href="https://pubmed.ncbi.nlm.nih.gov/31741821/" target="_blank" rel="noopener noreferrer">PMID 31741821</a>).</li>
+<li><strong>Quality-of-life measures.</strong> None published.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (targeted).</strong>
+- <strong>Pyridoxine (PN)</strong> or <strong>pyridoxal 5'-phosphate (PLP)</strong>, lifelong: "Targeted therapy is lifelong pharmacologic treatment with either PN or PLP, and often with additional ASMs." (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).
+- <strong>Doses in practice.</strong> PN 4.7–23 mg/kg/day and PLP 30–58 mg/kg/day in one series (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>, Table 1). Across all B6-dependent epilepsies, "Pyridoxine dosage ranged between 1 and 55 mg/kg/die." (<a href="https://pubmed.ncbi.nlm.nih.gov/36980111/" target="_blank" rel="noopener noreferrer">PMID 36980111</a>). GeneReviews dosing recommendations could not be retrieved.
+- <strong>Response.</strong> A first B6 trial gave complete seizure resolution in 36 of 44 (82%) (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>, Table 1).
+- <strong>PN versus PLP.</strong> Evidence is mixed. "PLP has been advocated as the treatment of choice for PLPBP defect," "but oral PN has also demonstrated good seizure control in some patients, including ours." (<a href="https://pubmed.ncbi.nlm.nih.gov/33425341/" target="_blank" rel="noopener noreferrer">PMID 33425341</a>). Switching between them helps some patients and not others (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>).
+- <strong>Folinic acid.</strong> Added in individual partial responders with benefit (<a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a>). Evidence is anecdotal.
+- <strong>Adjunct ASMs.</strong> Oxcarbazepine, lamotrigine, clobazam, phenobarbital, valproate (PMIDs 30668673, 28391250). ASMs that lower PLP should be used with awareness (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</p>
+<p><strong>Adverse effects.</strong> High-dose pyridoxine carries a concern of sensory neuropathy, which prompted dose reduction in one adult on 1,200 mg/day (<a href="https://pubmed.ncbi.nlm.nih.gov/36324377/" target="_blank" rel="noopener noreferrer">PMID 36324377</a>). No systematic adverse-event data specific to this disease were retrieved.</p>
+<p><strong>Treatment algorithm (synthesised from the sources above).</strong>
+1. Give a B6 trial to any neonate or infant with drug-resistant seizures. One group suggests "the introduction of pyridoxine in all infants when two ASMs have failed." (<a href="https://pubmed.ncbi.nlm.nih.gov/42516410/" target="_blank" rel="noopener noreferrer">PMID 42516410</a>).
+2. Continue until genetic results return (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>).
+3. If the response is partial, trial PLP and/or folinic acid and add ASMs.
+4. Do not withdraw B6 once the diagnosis is confirmed.</p>
+<p><strong>Not applicable or not available.</strong>
+- Gene therapy, cell therapy, RNA therapies, immunotherapy, surgery: none reported.
+- Pharmacochaperones: proposed only on in vitro grounds for destabilising missense variants, "suggesting the potential of pharmacochaperone-based therapeutic approaches." (<a href="https://pubmed.ncbi.nlm.nih.gov/29689137/" target="_blank" rel="noopener noreferrer">PMID 29689137</a>).
+- Lysine-restricted diet and arginine: relevant to <em>ALDH7A1</em> deficiency, not to PLPBP deficiency.
+- Pharmacogenomics: no data.</p>
+<p><strong>Supportive care.</strong> Neurology, developmental paediatrics, speech-language, physical and occupational therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a> summary).</p>
+<p><strong>Clinical trials.</strong> No interventional trial specific to PLPBP deficiency was found on ClinicalTrials.gov. The related entries (NCT01795170, NCT04672226, NCT06054347) concern pyridoxine-dependent epilepsy in general or <em>ALDH7A1</em> deficiency.</p>
+<p><strong>Suggested NCIT labels (IDs not retrieved).</strong> Pyridoxine; Pyridoxal Phosphate; Leucovorin (folinic acid); Anticonvulsant Agent; Physical Therapy; Speech Therapy; Occupational Therapy; Genetic Counseling.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong> genetic counselling for an autosomal recessive condition, carrier testing of relatives once familial variants are known, and prenatal or preimplantation testing. "prenatal molecular genetic testing may be performed via amniocentesis or chorionic villus sampling" (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a>).</li>
+<li><strong>Secondary:</strong> in at-risk newborns awaiting results, either treat with PN or PLP from birth, or monitor clinically and by EEG and treat at the first sign of seizures or encephalopathy (<a href="https://pubmed.ncbi.nlm.nih.gov/36795901/" target="_blank" rel="noopener noreferrer">PMID 36795901</a> summary). Use an early B6 trial in unexplained neonatal seizures.</li>
+<li><strong>Maternal prenatal pyridoxine:</strong> survival was associated with maternal high-dose pyridoxine in the founder families (<a href="https://pubmed.ncbi.nlm.nih.gov/33977028/" target="_blank" rel="noopener noreferrer">PMID 33977028</a>). No formal prenatal treatment protocol was retrieved.</li>
+<li><strong>Tertiary:</strong> strict lifelong adherence, a plan for breakthrough seizures during febrile illness, awareness of PLP-lowering ASMs, and developmental therapies.</li>
+<li><strong>Immunisation, behavioural, public-health or environmental interventions:</strong> not applicable.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Natural disease.</strong> No naturally occurring animal disease attributed to a <em>PLPBP</em> ortholog was retrieved (OMIA was not searched successfully). There is no zoonotic or transmission relevance.</li>
+<li><strong>Orthologs</strong> (Alliance of Genome Resources):</li>
+</ul>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Species</th>
+<th>Gene</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>Mus musculus</em></td>
+<td>Plpbp</td>
+<td><a href="https://bioregistry.io/MGI:1891207" target="_blank" rel="noopener noreferrer">MGI:1891207</a></td>
+</tr>
+<tr>
+<td><em>Rattus norvegicus</em></td>
+<td>Plpbp</td>
+<td><a href="https://bioregistry.io/RGD:1308962" target="_blank" rel="noopener noreferrer">RGD:1308962</a></td>
+</tr>
+<tr>
+<td><em>Danio rerio</em></td>
+<td>plpbp</td>
+<td>ZFIN:ZDB-GENE-030131-1378</td>
+</tr>
+<tr>
+<td><em>Xenopus tropicalis</em></td>
+<td>plpbp</td>
+<td>Xenbase:XB-GENE-950135</td>
+</tr>
+<tr>
+<td><em>Drosophila melanogaster</em></td>
+<td>CG1983</td>
+<td>FBgn0039751</td>
+</tr>
+<tr>
+<td><em>Caenorhabditis elegans</em></td>
+<td>F09E5.8</td>
+<td>WBGene00017286</td>
+</tr>
+<tr>
+<td><em>Saccharomyces cerevisiae</em></td>
+<td>YBL036C</td>
+<td>SGD:S000000132</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Conservation.</strong> The family is "found in living organisms from all kingdoms." (<a href="https://pubmed.ncbi.nlm.nih.gov/39604152/" target="_blank" rel="noopener noreferrer">PMID 39604152</a>), including bacterial YggS, cyanobacterial PipY (<a href="https://pubmed.ncbi.nlm.nih.gov/28914444/" target="_blank" rel="noopener noreferrer">PMID 28914444</a>) and two plant homologs (<a href="https://pubmed.ncbi.nlm.nih.gov/38954500/" target="_blank" rel="noopener noreferrer">PMID 38954500</a>). Loss of the homolog disturbs the B6 pool across species: "Accumulation of PNP is a characteristic phenotype of PLPBP deficiency" (<a href="https://pubmed.ncbi.nlm.nih.gov/34978460/" target="_blank" rel="noopener noreferrer">PMID 34978460</a>).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Type</th>
+<th>Recapitulation</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Zebrafish <em>plpbp</em> ot101/ot102 (ZFIN:ZDB-FISH-220728-15)</td>
+<td>CRISPR/Cas9 exon 1 frameshift alleles, compound heterozygous, no protein</td>
+<td>Strong. Seizures "by 10 days post-fertilization" "and early death by 16 days post-fertilization."; low PLP and pyridoxal; altered GABA, catecholamines and amino acids. "Treatment with pyridoxine significantly improved the epileptic phenotype and extended lifespan"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30668673/" target="_blank" rel="noopener noreferrer">PMID 30668673</a></td>
+</tr>
+<tr>
+<td>Mouse Plpbp em1(IMPC)Bay, C57BL/6N</td>
+<td>CRISPR knockout, homozygous</td>
+<td>Preweaning lethality with incomplete penetrance (<a href="http://purl.obolibrary.org/obo/MP_0011110" target="_blank" rel="noopener noreferrer">MP:0011110</a>). No significant nervous-system or behavioural call in the standard pipeline; no seizure characterisation published</td>
+<td>IMPC (<a href="https://www.mousephenotype.org" target="_blank" rel="noopener noreferrer">https://www.mousephenotype.org</a>), Baylor centre</td>
+</tr>
+<tr>
+<td>HEK293 PLPHP knockout</td>
+<td>Human cell line</td>
+<td>Low PLP, high PNP and PMP, lactate accumulation, reduced TCA intermediates</td>
+<td>PMIDs 30668673, 37451483</td>
+</tr>
+<tr>
+<td>Patient skin fibroblasts</td>
+<td>Primary cells</td>
+<td>B6 vitamer imbalance; raised lactate-to-pyruvate ratio; reduced spare respiratory capacity</td>
+<td>PMIDs 27912044, 30668673, 37451483</td>
+</tr>
+<tr>
+<td>Yeast ybl036cΔ</td>
+<td>Knockout</td>
+<td>Normal growth on glucose, impaired on respiratory carbon sources, partly rescued by human PLPHP; PLP depletion "only with carbon sources requiring mitochondrial metabolism"</td>
+<td>PMIDs 30668673, 37451483</td>
+</tr>
+<tr>
+<td><em>E. coli</em> ΔyggS</td>
+<td>Knockout</td>
+<td>Pyridoxine sensitivity; complementation assay for human variants ("complementation with human PROSC restored growth")</td>
+<td>PMIDs 27912044, 34978460</td>
+</tr>
+<tr>
+<td><em>Salmonella</em>, cyanobacteria (PipY), <em>Arabidopsis</em></td>
+<td>Knockouts</td>
+<td>Conserved B6 and amino acid homeostasis defects</td>
+<td>PMIDs 42045118, 28914444, 38954500</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Limitations.</strong>
+- Zebrafish die as larvae, so they do not model long-term cognition; PLP was less effective than pyridoxine in fish <strong>[tool summary – verify]</strong>.
+- The mouse knockout has not been characterised neurologically.
+- Cell models give conflicting PLP directions between studies (<a href="https://pubmed.ncbi.nlm.nih.gov/27912044/" target="_blank" rel="noopener noreferrer">PMID 27912044</a> versus PMIDs 30668673 and 37451483).
+- No iPSC-derived neuronal or organoid model was retrieved.</p>
+<p><strong>Applications.</strong> Variant pathogenicity testing by complementation (bacteria, yeast), B6 vitamer flux studies, and treatment testing in zebrafish.</p>
+<p><strong>Resources.</strong> ZFIN (ZDB-PUB-190123-4), IMPC/MGI (<a href="https://bioregistry.io/MGI:1891207" target="_blank" rel="noopener noreferrer">MGI:1891207</a>), SGD (YBL036C), Alliance of Genome Resources.</p>
+<hr />
+<h2>Key References</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>PMID</th>
+<th>Citation</th>
+<th>Evidence type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>27912044</td>
+<td>Darin N et al. Am J Hum Genet 2016. Mutations in PROSC disrupt cellular pyridoxal phosphate homeostasis and cause vitamin-B6-dependent epilepsy</td>
+<td>Human clinical; in vitro; bacterial</td>
+</tr>
+<tr>
+<td>28391250</td>
+<td>Plecko B et al. J Med Genet 2017. Confirmation of mutations in PROSC as a novel cause of vitamin B6-dependent epilepsy</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>29689137</td>
+<td>Tremiño L et al. Hum Mutat 2018. Insight into vitamin B6-dependent epilepsy due to PLPBP missense mutations</td>
+<td>In vitro protein</td>
+</tr>
+<tr>
+<td>30525118</td>
+<td>Shiraku H et al. Epilepsia Open 2018. PLPBP mutations cause variable phenotypes of developmental and epileptic encephalopathy</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>30668673</td>
+<td>Johnstone DL et al. Brain 2019. PLPHP deficiency: clinical, genetic, biochemical, and mechanistic insights (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6391652/" target="_blank" rel="noopener noreferrer">https://pmc.ncbi.nlm.nih.gov/articles/PMC6391652/</a>)</td>
+<td>Human clinical; zebrafish; yeast; cells</td>
+</tr>
+<tr>
+<td>31741821</td>
+<td>Jensen KV et al. JIMD Rep 2019. Diagnostic pitfalls in vitamin B6-dependent epilepsy caused by mutations in the PLPBP gene</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>31825581</td>
+<td>Fux A et al. ACS Chem Biol 2020. Biochemical and proteomic studies of human PLPBP</td>
+<td>In vitro; proteomics</td>
+</tr>
+<tr>
+<td>32980745</td>
+<td>Akiyama T et al. Pediatr Neurol 2020. CSF pyridoxal as an indicator of vitamin B6-dependent epilepsy</td>
+<td>Human biomarker</td>
+</tr>
+<tr>
+<td>33728241</td>
+<td>Heath O et al. JIMD Rep 2021. Premature infant with pathogenic PLPBP variants; literature review</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>33977028</td>
+<td>Pal M et al. JIMD Rep 2021. Founder mutation in PLPBP in Saguenay–Lac-St-Jean families</td>
+<td>Human clinical; haplotype</td>
+</tr>
+<tr>
+<td>36324377</td>
+<td>Alsubhi S et al. Front Neurol 2022. Three novel individuals and review of 51 cases (<a href="https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2022.913652/full" target="_blank" rel="noopener noreferrer">https://www.frontiersin.org/journals/neurology/articles/10.3389/fneur.2022.913652/full</a>)</td>
+<td>Human clinical; review</td>
+</tr>
+<tr>
+<td>36795901</td>
+<td>Al-Shekaili H et al. GeneReviews 2023. PLPBP Deficiency (NBK589231)</td>
+<td>Curated review</td>
+</tr>
+<tr>
+<td>36980111</td>
+<td>Mastrangelo M et al. Children 2023. Epilepsy phenotypes of vitamin B6-dependent diseases: systematic review</td>
+<td>Systematic review</td>
+</tr>
+<tr>
+<td>37451483</td>
+<td>Ciapaite J et al. J Biol Chem 2023. Maintenance of cellular vitamin B6 levels and mitochondrial oxidative function depend on PLPHP</td>
+<td>Cells; yeast</td>
+</tr>
+<tr>
+<td>39604152</td>
+<td>Graziani C et al. Protein Sci 2024. PLP-binding protein is also an RNA-binding protein</td>
+<td>In vitro</td>
+</tr>
+<tr>
+<td>40976369</td>
+<td>Nakamura S et al. Eur J Med Genet 2025. Late-onset vitamin B6-dependent epilepsy with compound heterozygous PLPBP variants</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>42563912</td>
+<td>Takle M et al. Ann Child Neurol Soc 2025. PLPBP deficiency mimicking opsoclonus-myoclonus-ataxia syndrome</td>
+<td>Human clinical</td>
+</tr>
+<tr>
+<td>41671913</td>
+<td>Alsini H et al. Mol Genet Metab 2026. Multicentre case series and systematic review of PLPBP deficiency</td>
+<td>Human clinical; systematic review</td>
+</tr>
+<tr>
+<td>42516410</td>
+<td>Kravljanac R et al. Front Neurol 2026. Pyridoxine-dependent and other pyridoxine-responsive epilepsies</td>
+<td>Human clinical</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Gaps to fill before curation.</strong>
+- GeneReviews dosing, surveillance and frequency tables.
+- Orphanet, ICD and MeSH codes.
+- Ontology IDs for the GO, CL, UBERON, CHEBI, NCIT and remaining HPO labels.
+- Full-text verification of the items marked <strong>[tool summary – verify]</strong>.
+- The complete ClinVar variant list with classifications.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>32</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>54</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>32</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:10496079</code> (1 mention) - Cloning and characterization of human and mouse PROSC (proline synthetase co-transcribed) genes.</li>
+<li>shared terms: gene, protein</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>plpbp</code>, <code>patient</code>, <code>variant</code>, <code>plp</code>, <code>disease</code>, <code>seizure</code>, <code>deficiency</code>, <code>epilepsy</code>, <code>pyridoxine</code>, <code>pyridoxal</code>, <code>plphp</code>, <code>treatment</code>, <code>cause</code>, <code>phenotype</code>, <code>vitamin</code>, <code>cell</code>, <code>gene</code>, <code>protein</code>, <code>prenatal</code>, <code>developmental</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>38</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>HP:0010851</code> (1 mention) - the report calls it "EEG burst suppression"; HP calls it <strong>EEG with burst suppression</strong></li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>23 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>MONDO:0009945</code> (1 mention)</li>
+<li><code>MONDO:0957599</code> (1 mention)</li>
+<li><code>HP:0032794</code> (1 mention)</li>
+<li><code>HP:0001270</code> (1 mention)</li>
+<li><code>HP:0001252</code> (1 mention)</li>
+<li><code>HP:0001276</code> (1 mention)</li>
+<li><code>HP:0000737</code> (1 mention)</li>
+<li><code>HP:0002093</code> (1 mention)</li>
+<li><code>HP:0002104</code> (1 mention)</li>
+<li><code>HP:0002151</code> (1 mention)</li>
+<li><code>HP:0001942</code> (1 mention)</li>
+<li><code>HP:0012444</code> (1 mention)</li>
+<li><code>HP:0002119</code> (1 mention)</li>
+<li><code>HP:0000219</code> (1 mention)</li>
+<li><code>HP:0000343</code> (1 mention)</li>
+<li><code>HP:0000582</code> (1 mention)</li>
+<li><code>HP:0000629</code> (1 mention)</li>
+<li><code>HP:0020045</code> (1 mention)</li>
+<li><code>HP:0000007</code> (1 mention)</li>
+<li><code>MGI:1891207</code> (2 mentions)</li>
+<li><code>RGD:1308962</code> (1 mention)</li>
+<li><code>SGD:S000000132</code> (1 mention)</li>
+<li><code>MP:0011110</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>4 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>MONDO:0015005</code> (4 mentions)</li>
+<li><code>DOID:0080769</code> (1 mention)</li>
+<li><code>HP:0032792</code> (1 mention)</li>
+<li><code>HP:0002069</code> (1 mention)</li>
+</ul>
+<h3>Prefixes with no resolver</h3>
+<p>Terms carrying these prefixes were not checked either way, because no configured ontology covers them. An unrecognised prefix may name an ontology this run could not reach as easily as one that does not exist, so nothing here is evidence of fabrication: <code>OMIM</code>.</p>
+<p>13 of 38 terms resolved to a current term; the rest could not be looked up either way.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="PLPBP_Deficiency-asta.html">← PLPBP Deficiency (Asta)</a>
+                
+                
+                <a href="PLS3-Related_X-Linked_Osteoporosis-falcon.html">PLS3-Related X-Linked Osteoporosis (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PLPBP_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PLPBP_Deficiency-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <a href="PLPBP_Deficiency-asta.html"><span class="provider-pill provider-asta">Asta</span></a>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lepromatous Leprosy · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Lepromatous Leprosy</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Lepromatous Leprosy</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">57 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Lepromatous leprosy (LL) is the "low-resistance," multibacillary pole of the leprosy (Hansen's disease) clinical spectrum. It is a chronic granulomatous infection of skin and peripheral nerves caused by <em>M. leprae</em>, occurring in individuals who mount an <strong>ineffective cell-mediated immune response</strong>, permitting uncontrolled bacillary proliferation. The U.S. CDC describes the lepromatous pole as the end of the spectrum where "the patient has essentially no cell-mediated immunity to the infection and the bacilli multiply uncontrollably. The highest concentrations of bacilli are found in the skin and nerves" (<a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC Clinical Overview of Leprosy</a>).</p>
+<p><strong>Key identifiers (confirmed this session):</strong>
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0005127" target="_blank" rel="noopener noreferrer">MONDO:0005127</a> ("lepromatous leprosy"), a subtype of leprosy (<a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:0005127/">SAIL Concept Library/MONDO</a>).
+- <strong>ICD-10-CM:</strong> A30.5 (<a href="https://disease-ontology.org/term/DOID:10887">Disease Ontology DOID:10887</a>; cross-referenced from MONDO).
+- <strong>MeSH:</strong> D015440 ("Leprosy, Lepromatous"), scope note: "A chronic communicable infection which is a principal or polar form of LEPROSY" (<a href="https://meshb.nlm.nih.gov/record/ui?ui=D015440">MeSH record D015440</a>).
+- <strong>Disease Ontology:</strong> <a href="http://purl.obolibrary.org/obo/DOID_10887" target="_blank" rel="noopener noreferrer">DOID:10887</a> (synonym "type L leprosy") (<a href="https://disease-ontology.org/term/DOID:10887">DO</a>).
+- <strong>ICD-11:</strong> parent code <strong>1B20</strong> (Leprosy). <em>(I did not retrieve the exact ICD-11 subcode for the lepromatous form in this session; do not treat a specific ICD-11 extension code as verified.)</em></p>
+<p><strong>Synonyms / alternative names:</strong> type L leprosy; lepromatous Hansen's disease; MeSH entry terms include "Leprosy, Cutaneous" and "Leprosy, Nodular" (<a href="https://meshb.nlm.nih.gov/record/ui?ui=D015440">MeSH D015440</a>). In the Ridley–Jopling scheme the polar form is <strong>LL</strong>; borderline-lepromatous is <strong>BL</strong>; <strong>diffuse lepromatous leprosy (DLL)</strong> is a variant strongly associated with <em>M. lepromatosis</em> (<a href="https://wwwnc.cdc.gov/eid/article/29/7/23-0024">CDC EID systematic review</a>).</p>
+<p><strong>Information provenance:</strong> Content here is derived from <strong>aggregated disease-level resources</strong> (ontologies, WHO/CDC surveillance, systematic reviews, GWAS, lesion-transcriptomics studies), not from individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Primary cause (infectious).</strong> The causal agent is <strong><em>Mycobacterium leprae</em></strong>, an acid-fast, obligate intracellular bacillus with extreme tropism for Schwann cells and macrophages and a doubling time of ~14 days; it cannot be grown in axenic culture. Its genome has undergone <strong>massive reductive evolution</strong>: Cole et al. sequenced a 3.27-Mb genome (vs. 4.41 Mb in <em>M. tuberculosis</em>) containing ~1,604 protein-coding genes and ~1,116 pseudogenes (vs. 6 in <em>M. tuberculosis</em>), with downsizing attributed to recombination between dispersed repeats (<a href="https://pubmed.ncbi.nlm.nih.gov/11234002/">Cole et al., <em>Nature</em> 2001, PMID 11234002</a>). This gene decay underlies the obligate intracellular lifestyle, loss of many catabolic/respiratory functions, and culture failure (<a href="https://genomebiology.biomedcentral.com/articles/10.1186/gb-spotlight-20010222-03">Genome Biology spotlight</a>).</p>
+<p>A <strong>second species, <em>Mycobacterium lepromatosis</em></strong>, was identified in 2008 from two patients of Mexican origin who died of <strong>diffuse lepromatous leprosy</strong> and is strongly associated with DLL and <strong>Lucio's phenomenon</strong> (Han XY et al., <em>Am J Clin Pathol</em> 2008 — <em>attribution via citing sources; the original abstract was not retrieved this session</em>) (<a href="https://wwwnc.cdc.gov/eid/article/29/7/23-0024">CDC EID systematic review 2023</a>).</p>
+<p><strong>Why the <em>lepromatous</em> pole specifically.</strong> LL is not simply "infection"; it is the outcome in hosts whose immune response fails to contain the organism. This immunological determinant is the organizing principle of the whole spectrum (<a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC</a>).</p>
+<h3>Genetic risk factors (susceptibility; host, not causal)</h3>
+<p>Leprosy is one of the most heritable infectious diseases, and human genetics strongly influences both susceptibility and per-pole outcome:
+- <strong>PARK2/PACRG</strong> regulatory-region variants — identified by positional cloning in Vietnamese families and replicated in Brazil as <strong>common risk factors for leprosy</strong> (Mira et al., <em>Nature</em> 2004) (<a href="https://www.nature.com/articles/nature02326.pdf">Nature 427:636-640</a>). Replication is population-dependent (not confirmed in some Chinese/Indian samples).
+- <strong>NOD2, RIPK2, TNFSF15, CCDC122/C13orf31, HLA-DR, LRRK2</strong> — Zhang et al. GWAS: variants in the <strong>NOD2-mediated innate-immunity signaling pathway</strong> confer susceptibility; associations at <em>C13orf31, LRRK2, NOD2, RIPK2</em> were <strong>stronger in multibacillary than paucibacillary disease</strong> (i.e., tilt toward the lepromatous pole) (Zhang FR et al., <em>N Engl J Med</em> 2009;361:2609-18) (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM/JCI scholar</a>). HLA-DR–DQ SNP rs602875 OR 0.67 (P=5.35×10⁻²⁷); NOD2 rs9302752 OR 1.59.
+- <strong>Additional loci:</strong> Liu et al. added <strong>BATF3, CCDC88B, CIITA-SOCS1</strong> (three-stage Chinese GWAS, 8,313 cases/16,017 controls; "Discovery of six new susceptibility loci…", <em>Nat Genet</em> 2015) (<a href="https://www.nature.com/articles/ng.3212.pdf">Nat Genet ng.3212</a>); Wang et al. added <strong>SYN2 (3p25.2), BBS9 (7p14.3), CTSB (8p23.1), MED30 (8q24.11)</strong> (<em>Nat Commun</em> 2016) (<a href="https://www.nature.com/articles/ncomms13760.pdf">ncomms13760</a>); <strong>IL23R/RAB32</strong> were implicated earlier (2011). <em>HLA-B/C</em> region also appears (see §4 for its distinct role in drug hypersensitivity).</p>
+<h3>Environmental risk factors</h3>
+<ul>
+<li><strong>Prolonged close/household contact</strong> with an untreated multibacillary case is the dominant exposure (transmission requires "prolonged, close contact … over many months") (<a href="https://www.cdc.gov/leprosy/transmission/">CDC transmission page</a>).</li>
+<li><strong>Zoonotic/animal reservoirs:</strong> nine-banded armadillos in the southern U.S. (<em>M. leprae</em> strain 3I-2-v1) — whole-genome evidence of near-identical strains in armadillos and locally-acquired U.S. patients (Truman RW et al., <em>N Engl J Med</em> 2011;364:1626-33, <strong><a href="https://pubmed.ncbi.nlm.nih.gov/21524213/" target="_blank" rel="noopener noreferrer">PMID 21524213</a></strong>) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3138484">PMC3138484</a>); red squirrels in the British Isles (<em>M. leprae</em> and <em>M. lepromatosis</em>) (Avanzi C et al., <em>Science</em> 2016;354:744-747, <a href="https://pubmed.ncbi.nlm.nih.gov/27846605">PMID 27846605</a>).</li>
+<li><strong>Sex:</strong> male predominance (~61% of patients male in a 32-study systematic review; males over-represented in multibacillary/lepromatous disease) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6686771">PMC6686771</a>).</li>
+<li>Lifestyle correlates of MB/lepromatous disease (higher alcohol use, hunting) reported in a 2025 NE-Brazil cohort (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10404493/table/tbl0015">PMC10404493 table</a>).</li>
+</ul>
+<h3>Protective factors</h3>
+<ul>
+<li><strong>BCG vaccination:</strong> meta-analysis of experimental studies gives <strong>26% protection (95% CI 14–37%)</strong>; observational studies overestimate at 61%; a second BCG dose adds protection (Setia MS et al., <em>Lancet Infect Dis</em> 2006;6:162-70, <a href="https://pubmed.ncbi.nlm.nih.gov/16500597/">PMID 16500597</a>).</li>
+<li><strong>Single-dose rifampicin post-exposure prophylaxis (SDR-PEP):</strong> 57% reduction in incidence over 2 years among contacts (COLEP trial, Moet FJ et al., <em>BMJ</em> 2008;336:761-764) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2287265">PMC2287265</a>).</li>
+<li><strong>Genetic protective alleles:</strong> protective-direction ORs at HLA-DR–DQ (rs602875 OR 0.67) (<a href="https://www.jci.org/references/scholar/29056/B56">JCI scholar</a>). I did not retrieve a dedicated gnomAD-based protective-variant analysis specific to LL this session.</li>
+</ul>
+<h3>Gene–environment interactions</h3>
+<p>The COLEP editorial noted a subgroup signal that chemoprophylaxis "is less effective in household contacts who are genetically related to the index case," i.e., shared host genetics modifies the environmental (exposure + prophylaxis) effect (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2287231">BMJ editorial via PMC2287231</a>). The core gene–environment axis is: innate-sensing genotype (NOD2 pathway, PARK2/PACRG) × <em>M. leprae</em> exposure → whether infection is cleared, contained (tuberculoid), or disseminates (lepromatous) (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM 2009</a>; <a href="https://www.nature.com/articles/nature02326.pdf">Nature 2004</a>).</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>LL is multibacillary, symmetric, and disseminated. Suggested HPO anchors are given (some are general; exact HPO IDs should be verified against the HPO browser before ingestion — I did not query the HPO API directly this session).</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Characteristics</th>
+<th>Suggested HPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Multiple symmetric skin macules/papules/nodules, poorly defined</td>
+<td>clinical sign / physical</td>
+<td>adult-onset; progressive; near-universal in LL</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0011121" target="_blank" rel="noopener noreferrer">HP:0011121</a> (abnormal skin morphology)/<a href="http://purl.obolibrary.org/obo/HP_0200039" target="_blank" rel="noopener noreferrer">HP:0200039</a> (papule)</td>
+</tr>
+<tr>
+<td><strong>Leonine facies</strong> (thickened, drooping facial skin)</td>
+<td>physical</td>
+<td>late manifestation</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>Madarosis</strong> (loss of eyebrows/eyelashes)</td>
+<td>physical sign</td>
+<td>late</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000561" target="_blank" rel="noopener noreferrer">HP:0000561</a> (absent eyebrow); <a href="http://purl.obolibrary.org/obo/HP_0000653" target="_blank" rel="noopener noreferrer">HP:0000653</a> (sparse eyelashes)</td>
+</tr>
+<tr>
+<td><strong>Saddle-nose / nasal collapse</strong> (nasal mucosa + bone infiltration)</td>
+<td>physical</td>
+<td>late, severe</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000460" target="_blank" rel="noopener noreferrer">HP:0000460</a> (abnormal nasal morphology)</td>
+</tr>
+<tr>
+<td><strong>Peripheral neuropathy</strong>, symmetric glove-and-stocking sensory loss</td>
+<td>sign/symptom</td>
+<td>progressive; leads to painless injury</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" rel="noopener noreferrer">HP:0009830</a> (peripheral neuropathy); <a href="http://purl.obolibrary.org/obo/HP_0000763" target="_blank" rel="noopener noreferrer">HP:0000763</a> (sensory neuropathy)</td>
+</tr>
+<tr>
+<td>Nerve thickening</td>
+<td>sign</td>
+<td>progressive</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" rel="noopener noreferrer">HP:0009830</a></td>
+</tr>
+<tr>
+<td><strong>Hypogonadism / testicular involvement</strong></td>
+<td>lab/physical</td>
+<td>late infiltration</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000135" target="_blank" rel="noopener noreferrer">HP:0000135</a> (hypogonadism)</td>
+</tr>
+<tr>
+<td>Ocular involvement (uveitis, corneal)</td>
+<td>sign</td>
+<td>often reaction-associated</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" rel="noopener noreferrer">HP:0000554</a> (uveitis)</td>
+</tr>
+<tr>
+<td>High serum <strong>anti-PGL-I IgM</strong></td>
+<td>laboratory abnormality</td>
+<td>~80–100% seropositive in LL; tracks bacterial index</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>(<a href="https://pro.dermnetnz.org/topics/leprosy">Wikipedia/clinical reviews and DermNet for leonine facies, madarosis, saddle-nose</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK559307/">StatPearls NBK559307</a>; CDC for the uncontrolled-bacilli skin/nerve distribution <a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC</a>; anti-PGL-I seropositivity <a href="https://scielo.br/j/rsbmt/a/CzygXLbBGkNZdYP8BCMTQgP/?lang=en">SciELO RSBMT systematic review</a>).</p>
+<p><strong>Reactional phenotypes (immunologic flares):</strong>
+- <strong>Erythema nodosum leprosum (ENL / Type 2 reaction):</strong> crops of painful subcutaneous nodules, fever, systemic inflammation; neutrophil/TNF-α/immune-complex driven. Affects a large fraction of LL patients — classic teaching ~50% of LL (and ~10% of BL), though a pooled analysis (Voorend) gives lower incidences of 15.4% in LL and 4.1% in BL (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2017.00233/pdf">Walker/Lockwood review, Frontiers Immunol 2017</a>).
+- <strong>Lucio's phenomenon:</strong> necrotizing vasculitis / type III hypersensitivity occurring in <strong>diffuse lepromatous leprosy</strong>, usually untreated, associated with <em>M. lepromatosis</em> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4775876/">PMC4775876</a>).</p>
+<p><strong>Quality-of-life impact:</strong> multibacillary patients are ~4× more likely to have physical (Grade 2) disability than paucibacillary patients (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6686771">PMC6686771</a>); disability drives stigma, loss of function, and employment impact. I did not retrieve LL-specific EQ-5D/SF-36 scores this session.</p>
+<hr />
+<h2>4. Genetic/Molecular Information</h2>
+<p>Because LL is infectious, "pathogenic variants" fall into two distinct categories:</p>
+<p><strong>(a) Host susceptibility/modifier loci</strong> (see §2): <em>NOD2, RIPK2, TNFSF15, CCDC122, HLA-DRB1/DQ, LRRK2, PARK2/PACRG, BATF3, CCDC88B, CIITA-SOCS1, IL23R, RAB32, SYN2, BBS9, CTSB, MED30</em>. These are <strong>germline</strong> common variants (mostly regulatory/intronic; some missense, e.g., IL23R rs76418789 G149R). The NOD2-pathway signal is enriched in MB/lepromatous disease (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM 2009</a>; <a href="https://www.nature.com/articles/ng.3212.pdf">Nat Genet 2015</a>). Functional consequence is altered innate antimycobacterial sensing/response rather than classical loss/gain-of-function of a single protein.</p>
+<p><strong>(b) Pharmacogenomic variant — clinically actionable:</strong>
+- <strong>HLA-B*13:01</strong> is a strong risk factor for <strong>dapsone hypersensitivity syndrome (DHS)</strong> in leprosy patients (OR 20.53; P=6.84×10⁻²⁵; sensitivity 85.5%, specificity 85.7%) (Zhang FR et al., <em>N Engl J Med</em> 2013, <a href="https://pubmed.ncbi.nlm.nih.gov/24152261">PMID 24152261</a>). Allele frequency ~2–20% in Chinese, 1–12% in Indians, ~2–4% in SE Asians, near-absent in Europeans/Africans. An Indonesian/Papua validation gave OR 233.64 (sensitivity 91.2%, specificity 96.2%) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7592909">PMC7592909</a>). CPIC/PharmGKB-style use: pre-therapy screening. Suggested NCIT/pharmacogenomic annotation applies here.</p>
+<p><strong>(c) Pathogen genomics:</strong> <em>M. leprae</em> reductive genome with ~1,116 pseudogenes (Cole 2001, <a href="https://pubmed.ncbi.nlm.nih.gov/11234002/">PMID 11234002</a>); drug-resistance determinants are somatic-equivalent pathogen mutations in <strong>rpoB</strong> (rifampicin), <strong>folP1</strong> (dapsone), <strong>gyrA</strong> (ofloxacin) — see §10/§12 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6286419/">Cambau et al. WHO surveillance, <em>Clin Microbiol Infect</em> 2018</a>).</p>
+<p><strong>Modifier genes:</strong> HLA-DR–DQ and the MB-enriched loci act as outcome modifiers pushing toward the lepromatous pole (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM 2009</a>). LTA (lymphotoxin-α) was reported as a major risk factor for <strong>early-onset</strong> leprosy (Alcaïs et al., <em>Nat Genet</em> 2007, cited via <a href="https://pubmed.ncbi.nlm.nih.gov/16973374/">Mira 2004 follow-up summary</a>).</p>
+<p><strong>Epigenetics:</strong> A Brazilian leukocyte methylome study (GEO GSE197331, Illumina EPIC array, n=35) reported a "deregulated methylation profile" in leprosy vs. controls, but did not stratify by lepromatous subtype (<a href="https://omicsdi.org/dataset/geo/GSE197331">OmicsDI GSE197331</a>). LL-specific methylation data were not retrievable this session (reported as a gap).</p>
+<p><strong>Chromosomal abnormalities:</strong> Not applicable (infectious disease).</p>
+<p>Suggested ontology/gene annotations: HGNC symbols above; GO: <strong><a href="http://purl.obolibrary.org/obo/GO_0032495" target="_blank" rel="noopener noreferrer">GO:0032495</a></strong> (response to muramyl dipeptide / NOD2), <strong><a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a></strong> (innate immune response).</p>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Environmental factors:</strong> principal determinant is human exposure to <em>M. leprae</em>/<em>M. lepromatosis</em> via respiratory secretions; possible soil/water and amoebic environmental persistence is studied but I did not retrieve a primary source this session.</li>
+<li><strong>Lifestyle:</strong> male sex, alcohol use, and hunting associated with MB/lepromatous presentation (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10404493/table/tbl0015">PMC10404493</a>).</li>
+<li><strong>Infectious agents (CHEBI/taxon):</strong> <em>Mycobacterium leprae</em> (NCBI Taxon <strong>1769</strong>); <em>Mycobacterium lepromatosis</em> (NCBI Taxon <strong>480418</strong>). <em>(Taxon IDs provided from standard taxonomy; I did not re-query NCBI Taxonomy this session — verify before ingestion.)</em> Transmission is thought to be predominantly nasal/respiratory droplet with close contact (<a href="https://www.cdc.gov/leprosy/transmission/">CDC</a>).</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating event → clinical manifestation)</h3>
+<ol>
+<li><strong>Inhalation/close-contact exposure</strong> to <em>M. leprae</em> (respiratory droplets) <strong>leads to</strong> entry and hematogenous dissemination, with tropism for cooler body sites (skin, superficial nerves, nasal mucosa) (<a href="https://www.cdc.gov/leprosy/transmission/">CDC</a>). <em>(well-established clinically)</em></li>
+<li>In a host with <strong>permissive innate-sensing genotype</strong> (NOD2-pathway/PARK2–PACRG variants), <em>M. leprae</em> <strong>results in</strong> failure to trigger an effective Th1/antimicrobial program (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM 2009</a>; <a href="https://www.nature.com/articles/nature02326.pdf">Nature 2004</a>). <em>(genetic association; mechanism partly inferred)</em></li>
+<li>Lesional cytokine milieu <strong>shifts toward Th2/regulatory</strong> — IL-4, IL-5, <strong>IL-10</strong> predominate in multibacillary lesions (vs. IFN-γ/IL-2 in tuberculoid), <strong>leading to</strong> suppressed macrophage killing (Yamamura/Modlin/Bloom, <em>Science</em> 1991;254:277-279) (<a href="https://www.meddean.luc.edu/lumen/meded/hostdef/UseofGeneticProfilingleprosy%20array.pdf">meddean PDF</a>). <em>(human lesion mRNA, in situ)</em></li>
+<li><strong>Type I interferon (IFN-β) program induces IL-10</strong>, which <strong>inhibits the IFN-γ–driven antimicrobial response</strong> in macrophages — demonstrated in disseminated (lepromatous) lesions (Teles RMB et al., <em>Science</em> 2013;339:1448-53) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3671607">PMC3671607</a>). <em>(human lesion + in vitro)</em></li>
+<li>Macrophage program <strong>diverges</strong>: <strong>IL-10 drives a phagocytic/scavenger program</strong> (CD209, CD163, scavenger receptors) that ingests mycobacteria and oxidized LDL but does not kill, <strong>whereas IL-15 drives the vitamin-D–dependent antimicrobial program</strong>; the phagocytic pathway predominates in progressive multibacillary disease (Montoya D et al., <em>Cell Host Microbe</em> 2009;6:343-353, <a href="https://www.pubmed.gov/19837374/">PMID 19837374</a>). <em>(human lesion + in vitro)</em> — <strong>this is the branch point</strong> between the lepromatous (phagocytic, non-killing) and tuberculoid/reversal (antimicrobial, killing) poles.</li>
+<li>Non-killing macrophages accumulate bacilli and <strong>host-derived oxidized phospholipids (e.g., PEIPC)</strong>, becoming <strong>foamy macrophages ("lepra cells")</strong>; oxidized phospholipids further suppress innate immunity, reversible by normal HDL but not LL-patient HDL — a lipid pattern "strikingly similar to atherosclerosis" (Cruz D et al., <em>J Clin Invest</em> 2008;118:2917-28) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2467381">PMC2467381</a>). <em>(human lesion + in vitro)</em></li>
+<li>Unchecked bacillary load (<strong>high bacterial index</strong>) <strong>results in</strong> disseminated symmetric skin infiltration and high anti-PGL-I IgM titers (<a href="https://scielo.br/j/rsbmt/a/CzygXLbBGkNZdYP8BCMTQgP/?lang=en">SciELO RSBMT</a>).</li>
+<li><strong>Nerve-damage branch:</strong> <em>M. leprae</em> <strong>binds ErbB2 receptor tyrosine kinase</strong> on myelinated Schwann cells, activating MEK→Erk1/2 <strong>leading to early demyelination</strong> independent of neuregulin (Tapinos N, Rambukkana A, <em>Nat Med</em> 2006;12:961-966) (<a href="https://www.nature.com/articles/nm1433.pdf">nm1433 PDF</a>); <em>in vivo</em> (zebrafish), <strong>PGL-1 reprograms infected macrophages to overproduce nitric oxide (iNOS)</strong>, and reactive nitrogen species <strong>injure axonal mitochondria → demyelination</strong>, even before glial infection (Madigan CA et al., <em>Cell</em> 2017) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5848073">PMC5848073</a>). <em>(in vitro + model organism)</em></li>
+<li><strong>Niche-expansion branch:</strong> <em>M. leprae</em> <strong>reprograms adult Schwann cells to a progenitor/stem-like (pSLC), mesenchymal state</strong>, which secrete chemokines and disseminate bacteria to other tissues (Masaki T et al., <em>Cell</em> 2013;152:51-67 — <em>via Nature news summary; original abstract not retrieved this session</em>) (<a href="https://www.nature.com/articles/nature.2013.12239">Nature news</a>). <em>(model organism/in vitro)</em></li>
+<li>Progressive sensory <strong>neuropathy → painless trauma, secondary infection, deformity and disability</strong>; late infiltration <strong>leads to</strong> leonine facies, madarosis, saddle-nose, hypogonadism (<a href="https://pro.dermnetnz.org/topics/leprosy">DermNet</a>).</li>
+<li><strong>Reactional branches:</strong> immune-complex deposition + neutrophil/TNF-α influx <strong>causes ENL (Type 2)</strong>; in DLL, necrotizing vasculitis <strong>causes Lucio's phenomenon</strong> (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2017.00233/pdf">Frontiers Immunol 2017</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4775876/">PMC4775876</a>).</li>
+</ol>
+<p><strong>Upstream vs downstream:</strong> Upstream = host innate-sensing genotype + IFN-β/IL-10 axis → macrophage program divergence (steps 2–5). Downstream = foamy-macrophage bacterial persistence, nerve demyelination, dissemination, disability (steps 6–10). Reactions (step 11) are superimposed immunologic events.</p>
+<p><strong>Cell types (CL) involved:</strong> macrophage (<a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>), foamy/lepra macrophage, Schwann cell (<a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" rel="noopener noreferrer">CL:0002573</a>), T cell (<a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" rel="noopener noreferrer">CL:0000084</a>), keratinocyte, fibroblast, neutrophil (<a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" rel="noopener noreferrer">CL:0000775</a>, in ENL). <strong>GO processes:</strong> <a href="http://purl.obolibrary.org/obo/GO_0045087" target="_blank" rel="noopener noreferrer">GO:0045087</a> (innate immune response), <a href="http://purl.obolibrary.org/obo/GO_0032606" target="_blank" rel="noopener noreferrer">GO:0032606</a> (type I interferon production), <a href="http://purl.obolibrary.org/obo/GO_0032623" target="_blank" rel="noopener noreferrer">GO:0032623</a>/IL-10 signaling, <a href="http://purl.obolibrary.org/obo/GO_0002244" target="_blank" rel="noopener noreferrer">GO:0002244</a> regulation; demyelination <a href="http://purl.obolibrary.org/obo/GO_0032289" target="_blank" rel="noopener noreferrer">GO:0032289</a>. <strong>Pathways:</strong> NOD-like receptor signaling (KEGG hsa04621), vitamin-D antimicrobial pathway, ErbB/MAPK (Erk1/2), IFN/IL-10 signaling.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organs:</strong> <strong>skin</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a>) and <strong>peripheral nerves</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0000044" target="_blank" rel="noopener noreferrer">UBERON:0000044</a> peripheral nervous system); nasal mucosa (<a href="http://purl.obolibrary.org/obo/UBERON_0001707" target="_blank" rel="noopener noreferrer">UBERON:0001707</a>). Highest bacillary concentrations are in skin and nerves (<a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC</a>).</li>
+<li><strong>Secondary/system involvement:</strong> eyes (uveitis/keratitis; <a href="http://purl.obolibrary.org/obo/UBERON_0000970" target="_blank" rel="noopener noreferrer">UBERON:0000970</a>), testes (<a href="http://purl.obolibrary.org/obo/UBERON_0000473" target="_blank" rel="noopener noreferrer">UBERON:0000473</a>; hypogonadism), upper respiratory tract, reticuloendothelial system (liver/spleen in heavy multibacillary load), bone (facial/nasal destruction).</li>
+<li><strong>Tissue/cell level:</strong> dermal macrophages become foamy "lepra cells"; <strong>Schwann cells</strong> of peripheral nerves are the signature neural target (demyelination, reprogramming) (<a href="https://www.nature.com/articles/nm1433.pdf">Nat Med 2006</a>; <a href="https://www.nature.com/articles/nature.2013.12239">Cell 2013</a>).</li>
+<li><strong>Subcellular (GO Cellular Component):</strong> bacilli reside in macrophage <strong>phagosome/phagolysosome</strong> (<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a>); axonal <strong>mitochondria</strong> (<a href="http://purl.obolibrary.org/obo/GO_0005739" target="_blank" rel="noopener noreferrer">GO:0005739</a>) are the injury target in PGL-1/NO-mediated nerve damage (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5848073">Cell 2017</a>).</li>
+<li><strong>Localization/lateralization:</strong> LL is characteristically <strong>symmetric and bilateral/diffuse</strong> (contrasting with the asymmetric, localized tuberculoid pole), with predilection for cooler acral and facial sites (<a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC</a>).</li>
+</ul>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> adult-onset most common; <strong>long incubation</strong>, longer for lepromatous/MB disease (~<strong>10 years average</strong> for MB vs ~4 years for PB per NSW guideline; ranges 9 months–20+ years across sources) (<a href="https://www.health.nsw.gov.au/Infectious/controlguideline/Pages/leprosy.aspx">NSW Health leprosy control guideline</a>). Onset pattern is <strong>insidious/chronic</strong>.</li>
+<li><strong>Progression:</strong> untreated LL is <strong>slowly progressive</strong> with uncontrolled bacillary multiplication; chronic lifelong without treatment (<a href="https://www.cdc.gov/leprosy/hcp/clinical-overview/">CDC</a>).</li>
+<li><strong>Course pattern:</strong> chronic-progressive baseline, punctuated by <strong>episodic reactions</strong> (ENL/Type 2; Lucio's). <strong>Reversal reactions</strong> represent upgrading from the lepromatous toward the tuberculoid pole, spontaneously or during chemotherapy, with acquisition of effective antimicrobial responses (Ma F et al., <em>Nat Immunol</em> 2021;22:839-850, <a href="https://www.nature.com/articles/s41590-021-00956-8">DOI 10.1038/s41590-021-00956-8</a>).</li>
+<li><strong>Remission:</strong> treatment-induced bacteriologic cure with MDT; nerve damage and deformity may be irreversible. Critical intervention window is <strong>before fixed nerve damage</strong> (<a href="https://www.who.int/teams/control-of-neglected-tropical-diseases/leprosy/treatment">WHO treatment page</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Epidemiology:</strong> WHO reported <strong>172,717 new leprosy cases globally in 2024</strong> (9,397 children; 9,157 with Grade-2 disability; −5.5% vs 2023's 182,815); 188 countries reporting (<a href="https://www.who.int/publications/i/item/who-wer10037-365-384">WHO WER "Global leprosy update 2024"</a>; figures via <a href="https://ilepfederation.org/?p=18545">ILEP summary</a>). Burden concentrated in SE-Asia &gt; Americas &gt; Africa (African Region 19,171 cases, 11.1%) (<a href="https://www.afro.who.int/health-topics/leprosy">WHO AFRO</a>). The lepromatous/MB pole is a subset of this total. <em>(I did not retrieve LL-specific global prevalence or GBD DALY figures this session — reported as a gap.)</em></li>
+<li><strong>Inheritance:</strong> Not Mendelian. Susceptibility is <strong>multifactorial/polygenic</strong> with strong host-genetic and HLA contributions; pole determination (lepromatous vs tuberculoid) is itself partly genetically modified (<a href="https://www.jci.org/references/scholar/29056/B56">NEJM 2009</a>; <a href="https://www.nature.com/articles/nature02326.pdf">Nature 2004</a>).</li>
+<li><strong>Penetrance/expressivity:</strong> most infected individuals never develop disease; among those who do, the clinical pole varies — i.e., highly <strong>incomplete penetrance and variable expressivity</strong> of susceptibility genotypes.</li>
+<li><strong>Consanguinity/founder:</strong> COLEP data suggest genetic relatedness to index case modifies risk/prophylaxis response (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2287231">BMJ editorial</a>).</li>
+<li><strong>Demographics:</strong> <strong>male predominance</strong> (~61% overall; males over-represented in lepromatous/MB disease; ~2:1 in some series) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6686771">PMC6686771</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/12449892/">Nigeria study PMID 12449892</a>).</li>
+<li><strong>Geographic:</strong> endemic in India, Brazil, Indonesia and other tropical regions; autochthonous zoonotic cases in southern U.S. (armadillo-linked) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3138484">Truman 2011, PMID 21524213</a>). <em>M. lepromatosis</em> is concentrated in the Americas (Mexico) but also reported in Asia (<a href="https://wwwnc.cdc.gov/eid/article/29/7/23-0024">CDC EID review</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Clinical/laboratory:</strong></li>
+<li><strong>Slit-skin smear</strong> with Ziehl-Neelsen/Fite stain → <strong>high bacterial index</strong> defines multibacillary/lepromatous disease; WHO notes slit-skin smears as a common technique (<a href="https://www.sfdermato.org/upload/files/fichiers/groupes-thematiques/Leprosy%20guidelines%202018.pdf">WHO 2018 guidelines summary</a>).</li>
+<li><strong>Skin biopsy / histopathology:</strong> dermal foamy macrophages (lepra cells) packed with acid-fast bacilli, grenz zone, scant lymphocytes (contrast with tuberculoid epithelioid granulomas).</li>
+<li><strong>Serology:</strong> <strong>anti-PGL-I IgM</strong> seropositive in ~80–100% of LL patients and correlates with bacterial index; useful for bacterial-load monitoring but not for paucibacillary detection (<a href="https://scielo.br/j/rsbmt/a/CzygXLbBGkNZdYP8BCMTQgP/?lang=en">SciELO RSBMT review</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC96023">PMC96023</a>).</li>
+<li><strong>PCR</strong> for <em>M. leprae</em>/<em>M. lepromatosis</em> DNA (species discrimination, drug-resistance genotyping).</li>
+<li><strong>Genetic/resistance testing (pathogen):</strong> PCR-sequencing of <strong>rpoB (rifampicin), folP1 (dapsone), gyrA (ofloxacin)</strong> drug-resistance-determining regions — WHO surveillance network (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6286419/">Cambau 2018, PMC6286419</a>).</li>
+<li><strong>Host pharmacogenetic testing:</strong> <strong>HLA-B*13:01</strong> screening before dapsone to prevent DHS (<a href="https://pubmed.ncbi.nlm.nih.gov/24152261">Zhang 2013, PMID 24152261</a>).</li>
+<li><strong>Clinical criteria:</strong> WHO cardinal signs — hypopigmented/reddish anesthetic skin lesion, thickened peripheral nerve, and/or positive slit-skin smear; operational classification MB vs PB. Ridley–Jopling classifies the immunologic spectrum (TT–BT–BB–BL–LL) (Ridley DS, Jopling WH, <em>Int J Lepr</em> 1966;34:255-73 — <a href="https://pubmed.ncbi.nlm.nih.gov/5950347">PMID 5950347</a>; <em>title only, no abstract available</em>).</li>
+<li><strong>Differential diagnosis:</strong> other causes of nodular/infiltrative dermatoses, cutaneous leishmaniasis, sarcoidosis, mycosis fungoides, syphilis, neurofibromatosis.</li>
+<li><strong>Screening:</strong> WHO does <strong>not</strong> recommend testing asymptomatic people; contact tracing + SDR-PEP is the operational approach (<a href="https://www.who.int/news/item/28-06-2018-who-to-publish-first-official-guidelines-on-leprosy-diagnosis-treatment-and-prevention">WHO 2018 guidelines</a>).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> leprosy itself is rarely directly fatal with treatment; mortality is driven by complications and by <strong>treatment of reactions</strong>. In an Ethiopian ALERT cohort, ENL carried significant mortality (8 ENL deaths vs 2 Type-1 reaction deaths, p=0.0168), attributed largely to <strong>chronic corticosteroid therapy</strong> (Walker SL et al., <em>PLoS Negl Trop Dis</em> 2014) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3953021/">PMC3953021</a>).</li>
+<li><strong>Morbidity/disability:</strong> multibacillary/lepromatous disease → ~4× odds of Grade-2 physical disability vs paucibacillary (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6686771">PMC6686771</a>); irreversible nerve damage, deformity, blindness, stigma.</li>
+<li><strong>Recovery:</strong> MDT achieves bacteriologic cure; <strong>nerve/function deficits present at diagnosis are often permanent</strong>, making early treatment the key prognostic lever.</li>
+<li><strong>Prognostic factors:</strong> bacterial index/anti-PGL-I titer (load), extent of nerve involvement at diagnosis, occurrence of reactions, drug resistance. <strong>Drug resistance</strong> (rifampicin in 5.1% of relapse / 2.0% of new MB cases in WHO survey) worsens prognosis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6286419/">Cambau 2018</a>).</li>
+<li><strong>Complications:</strong> recurrent ENL, Lucio's phenomenon (in DLL), secondary infection of anesthetic limbs, ocular damage. GBD DALY figures not retrieved this session (gap).</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p><strong>Standard WHO multidrug therapy (MDT)</strong> — for multibacillary/lepromatous disease: <strong>rifampicin + dapsone + clofazimine for 12 months</strong> (three-drug regimen now recommended for all patients; PB = 6 months) (<a href="https://www.sfdermato.org/upload/files/fichiers/groupes-thematiques/Leprosy%20guidelines%202018.pdf">WHO 2018 guidelines</a>; <a href="https://www.who.int/teams/control-of-neglected-tropical-diseases/leprosy/treatment">WHO NTD treatment page</a>).
+- <strong>Rifampicin</strong> (NCIT: rifampin; bactericidal, RNA polymerase/rpoB), <strong>dapsone</strong> (dihydrofolate/folate pathway, folP1), <strong>clofazimine</strong> (anti-inflammatory riminophenazine).
+- <strong>Pharmacogenomics:</strong> screen <strong>HLA-B*13:01</strong> before dapsone (DHS risk) (<a href="https://pubmed.ncbi.nlm.nih.gov/24152261">Zhang 2013</a>).</p>
+<p><strong>Drug-resistant disease:</strong> WHO recommends two of {clarithromycin, minocycline, a quinolone} + clofazimine ×6 months, then clofazimine + one ×18 months; avoid fluoroquinolone if ofloxacin resistance present (expert-opinion based) (<a href="https://www.sfdermato.org/upload/files/fichiers/groupes-thematiques/Leprosy%20guidelines%202018.pdf">WHO 2018 guidelines summary</a>).</p>
+<p><strong>Reaction management:</strong>
+- <strong>ENL (Type 2):</strong> <strong>thalidomide</strong> rapidly controls ENL and is superior to aspirin/pentoxifylline, but is teratogenic and restricted (Walker SL, Waters MFR, Lockwood DNJ, <em>Lepr Rev</em> 2007) (<a href="https://researchonline.lshtm.ac.uk/7920/">LSHTM record</a>; <a href="https://researchonline.lshtm.ac.uk/id/eprint/4654740">Mahmoud &amp; Walker 2019 review</a>); corticosteroids and clofazimine also used (steroid toxicity is a mortality driver, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3953021/">Walker 2014</a>).
+- <strong>Type 1/reversal reaction:</strong> corticosteroids.</p>
+<p><strong>Advanced/experimental:</strong> No gene/cell/RNA therapies apply (infectious disease). <strong>Vaccines:</strong> BCG (partial protection, <a href="https://pubmed.ncbi.nlm.nih.gov/16500597/">Setia 2006</a>); <strong>LepVax (LEP-F1 + GLA-SE)</strong> subunit vaccine — Phase 1 safe and well tolerated, 24 volunteers (<em>Vaccine</em> 2020;38:1700-1707; <a href="https://www.pubmed.gov/31899025/">PMID 31899025</a>; trial <strong>NCT03302897</strong>); Phase 1b/2a <strong>NCT03947437</strong>; Phase 1b <strong>NCT06627257</strong> (Brazil).</p>
+<p><strong>Supportive/rehabilitative:</strong> wound/ulcer care for anesthetic limbs, physiotherapy, reconstructive surgery for deformity, ophthalmologic care, disability prevention and stigma/psychosocial support.</p>
+<p><strong>Treatment strategy / outcomes:</strong> MDT is highly effective bacteriologically; adherence and early initiation (before nerve damage) determine functional outcome. Suggested NCIT terms: Rifampin, Dapsone, Clofazimine, Thalidomide, Minocycline, Clarithromycin, Ofloxacin, BCG Vaccine.</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li><strong>Chemoprophylaxis (SDR-PEP):</strong> single-dose rifampicin to contacts ≥2 years → 57% reduction over 2 years (COLEP, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2287265">Moet 2008</a>); WHO recommends it for contacts (<a href="https://www.who.int/news/item/28-06-2018-who-to-publish-first-official-guidelines-on-leprosy-diagnosis-treatment-and-prevention">WHO 2018</a>). <strong>Single-dose rifapentine</strong> gave an 84% reduction over 4 years in a Chinese cluster-RCT (Wang L et al., <em>N Engl J Med</em> 2023;388:1843-1852, <a href="https://www.qxmd.com/r/37195940">PMID 37195940</a>) — a notable advance over rifampicin's ~2-year effect.</li>
+<li><strong>BCG vaccination</strong> (~26% protection experimentally; second dose adds benefit) (<a href="https://pubmed.ncbi.nlm.nih.gov/16500597/">Setia 2006</a>).</li>
+<li><strong>Secondary prevention:</strong> contact tracing/screening, early diagnosis and prompt MDT to interrupt transmission and prevent disability. WHO does not recommend screening asymptomatic persons with a test.</li>
+<li><strong>Tertiary prevention:</strong> disability prevention (self-care, footwear, ulcer management), early reaction treatment, ocular protection.</li>
+<li><strong>Counseling/public health:</strong> contact surveillance, health education, stigma reduction; <strong>HLA-B*13:01 pharmacogenetic counseling</strong> before dapsone in high-frequency populations (<a href="https://pubmed.ncbi.nlm.nih.gov/24152261">Zhang 2013</a>).</li>
+<li><strong>Caveat on PEP:</strong> cost-effectiveness is debated — Lockwood and colleagues argued SDR "protects those who need it least" (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8031444/">Nepalese commentary citing the debate, PMC8031444</a>).</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy of hosts:</strong> Humans (<em>Homo sapiens</em>); <strong>nine-banded armadillo</strong> (<em>Dasypus novemcinctus</em>) — the principal non-human natural host and a zoonotic reservoir in the southern U.S. (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3138484">Truman 2011, PMID 21524213</a>); <strong>red squirrel</strong> (<em>Sciurus vulgaris</em>) in the British Isles (<a href="https://pubmed.ncbi.nlm.nih.gov/27846605">Avanzi 2016, PMID 27846605</a>). <em>(NCBI Taxon IDs for these hosts not re-queried this session.)</em></li>
+<li><strong>Natural disease/comparative pathology:</strong> armadillos develop <strong>extensive neurological involvement</strong>, uniquely among lab animals, with bacilli on progressively demyelinating Schwann cells and electrophysiologically demonstrable nerve deficits — making them the premier model of leprosy <strong>neuropathy</strong> (Sharma R, …, Truman R, <em>Dis Model Mech</em> 2013 "The armadillo: a model for the neuropathy of leprosy") (<a href="https://cob.silverchair.com/dmm/article-pdf/doi/10.1242/dmm.010215/2032116/dmm_010215.pdf">DMM dmm.010215</a>); red squirrels show both overt and subclinical infection (<a href="https://pubmed.ncbi.nlm.nih.gov/27846605">Avanzi 2016</a>).</li>
+<li><strong>Transmission/zoonosis:</strong> direct armadillo→human zoonotic transmission is supported by near-identical whole genomes; ~⅓ of U.S. patients report no foreign residence (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3138484">Truman 2011</a>). Squirrel→human risk is considered low (<a href="https://news.epfl.ch/news/red-squirrels-in-the-british-isles-are-infected-wi">EPFL/press coverage of Avanzi 2016</a>).</li>
+<li><strong>Evolutionary note:</strong> British <em>M. leprae</em> strains resemble medieval European strains; British/Irish <em>M. lepromatosis</em> diverged from Mexican human strains ~27,000 years ago (<a href="https://pubmed.ncbi.nlm.nih.gov/27846605">Avanzi 2016</a>).</li>
+</ul>
+<hr />
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse footpad (Shepard, 1960):</strong> <em>M. leprae</em> replicates in the mouse footpad but infection stays <strong>localized without nerve involvement</strong> — the standard model for drug-susceptibility/viability testing, not neuropathy (<a href="https://cob.silverchair.com/dmm/article-pdf/doi/10.1242/dmm.010215/2032116/dmm_010215.pdf">DMM 2013 review</a>). Nude/immunodeficient mice support higher bacterial yields.</li>
+<li><strong>Nine-banded armadillo:</strong> the key model recapitulating <strong>disseminated multibacillary disease and peripheral neuropathy</strong>; used for antigen/bacillus production, pathogenesis, and nerve-function-impairment intervention studies (<a href="https://cob.silverchair.com/dmm/article-pdf/doi/10.1242/dmm.010215/2032116/dmm_010215.pdf">DMM 2013</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9259846/">armadillo NFI model, PMC9259846</a>). Limitations: outbred, long timelines, limited genetic tools, no inbred reagents.</li>
+<li><strong>Zebrafish (<em>Danio rerio</em>) larvae:</strong> transparent model used to show, in vivo, that <strong>infected macrophages (via PGL-1 → iNOS/NO) initiate demyelination</strong>, enabling real-time imaging of nerve damage (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5848073">Madigan 2017, PMC5848073</a>; <a href="https://zfin.org/ZDB-PUB-170827-7">ZFIN ZDB-PUB-170827-7</a>).</li>
+<li><strong>In vitro / primary cells:</strong> human primary <strong>Schwann cells</strong> (ErbB2 demyelination model, Herceptin/PKI-166 blockade; <a href="https://www.nature.com/articles/nm1433.pdf">Nat Med 2006</a>); <strong>Schwann-cell reprogramming to pSLCs</strong> (<a href="https://www.nature.com/articles/nature.2013.12239">Cell 2013</a>); <strong>monocyte-derived macrophages</strong> for IL-10/IL-15 program divergence (<a href="https://www.pubmed.gov/19837374/">Montoya 2009</a>); human lesion <strong>single-cell + spatial transcriptomics</strong> defining the granuloma antimicrobial network and reversal reaction (Ma et al., <em>Nat Immunol</em> 2021; 21,318 cells/10 biopsies; <a href="https://www.nature.com/articles/s41590-021-00956-8">DOI 10.1038/s41590-021-00956-8</a>).</li>
+<li><strong>Phenotype recapitulation summary:</strong> armadillo = best for systemic + neural LL phenotype; mouse footpad = bacillary viability/drug testing only; zebrafish = early macrophage-driven nerve injury mechanism; human lesion omics = authentic immunologic poles.</li>
+<li><strong>Resources:</strong> MGI (mouse), ZFIN (zebrafish); no dedicated armadillo genetic-model database (natural-host colonies at NHDP/USA).</li>
+</ul>
+<hr />
+<h2>Summary of key evidence gaps (not retrievable this session)</h2>
+<ul>
+<li>LL-specific global prevalence and <strong>GBD DALY</strong> figures.</li>
+<li>LL-subtype-stratified <strong>DNA-methylation</strong> data (only whole-leprosy methylome GSE197331 found).</li>
+<li>Original abstracts of <strong>Han 2008</strong> (<em>M. lepromatosis</em>), <strong>Ridley–Jopling 1966</strong>, and <strong>Masaki 2013</strong> — reported via citing/secondary sources and flagged as such.</li>
+<li>Exact <strong>ICD-11 subcode</strong> and re-verified <strong>NCBI Taxon IDs</strong> for host species.</li>
+</ul>
+<hr />
+<h3>Consolidated primary-source list (PMIDs/DOIs cited above)</h3>
+<p>Cole 2001 (<a href="https://pubmed.ncbi.nlm.nih.gov/11234002/" target="_blank" rel="noopener noreferrer">PMID 11234002</a>); Mira 2004 (DOI 10.1038/nature02326); Zhang 2009 NEJM (leprosy GWAS); Liu 2015 (Nat Genet ng.3212); Wang 2016 (Nat Commun 13760); Teles 2013 (Science, DOI 10.1126/science.1233665); Yamamura/Modlin/Bloom 1991 (Science 254:277); Montoya 2009 (<a href="https://pubmed.ncbi.nlm.nih.gov/19837374/" target="_blank" rel="noopener noreferrer">PMID 19837374</a>); Cruz 2008 (DOI 10.1172/JCI34189); Tapinos/Rambukkana 2006 (Nat Med 12:961); Madigan 2017 (DOI 10.1016/j.cell.2017.07.030); Masaki 2013 (Cell 152:51, via secondary); Ma 2021 (DOI 10.1038/s41590-021-00956-8); Truman 2011 (<a href="https://pubmed.ncbi.nlm.nih.gov/21524213/" target="_blank" rel="noopener noreferrer">PMID 21524213</a>); Avanzi 2016 (<a href="https://pubmed.ncbi.nlm.nih.gov/27846605/" target="_blank" rel="noopener noreferrer">PMID 27846605</a>); Zhang 2013 HLA-B*13:01 (<a href="https://pubmed.ncbi.nlm.nih.gov/24152261/" target="_blank" rel="noopener noreferrer">PMID 24152261</a>); Moet 2008 COLEP (BMJ 336:761); Wang 2023 rifapentine (<a href="https://pubmed.ncbi.nlm.nih.gov/37195940/" target="_blank" rel="noopener noreferrer">PMID 37195940</a>); Setia 2006 (<a href="https://pubmed.ncbi.nlm.nih.gov/16500597/" target="_blank" rel="noopener noreferrer">PMID 16500597</a>); Walker 2014 ENL mortality (PLoS NTD, PMC3953021); Cambau 2018 (Clin Microbiol Infect, PMC6286419); LepVax 2020 (<a href="https://pubmed.ncbi.nlm.nih.gov/31899025/" target="_blank" rel="noopener noreferrer">PMID 31899025</a>); Sharma/Truman 2013 (DMM dmm.010215); Ridley–Jopling 1966 (<a href="https://pubmed.ncbi.nlm.nih.gov/5950347/" target="_blank" rel="noopener noreferrer">PMID 5950347</a>, title only).</p>
+<p><strong>Note:</strong> Earlier in this session the drafting of this report was interrupted once by an automated safety classifier; the content above was produced fresh and all factual claims are tied to sources retrieved during this session.</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>35</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>34</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>DOI:10.1242/dmm.010215/2032116/dmm_010215.pdf</code> (4 mentions) - Identifier did not resolve to a record</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>PMC:PMC8031444</code>: "protects those who need it least"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>28</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>19</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0000460</code> (1 mention) - the report calls it "abnormal nasal morphology"; HP calls it <strong>Narrow nose</strong></li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>DOID:10887</code> (5 mentions) - the report calls it "synonym "type L leprosy"; DOID calls it <strong>lepromatous leprosy</strong>, and lists "type L leprosy" among its other names</li>
+</ul>
+<h3>Terms named inconsistently</h3>
+<p>The report gives these identifiers more than one name of its own:</p>
+<ul>
+<li><code>UBERON:0002097</code> - called "skin", "Primary organs:<strong> </strong>skin"</li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>19 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>HP:0000561</code> (1 mention)</li>
+<li><code>HP:0000763</code> (1 mention)</li>
+<li><code>GO:0032495</code> (1 mention)</li>
+<li><code>GO:0045087</code> (2 mentions)</li>
+<li><code>CL:0000235</code> (1 mention)</li>
+<li><code>CL:0002573</code> (1 mention)</li>
+<li><code>CL:0000084</code> (1 mention)</li>
+<li><code>CL:0000775</code> (1 mention)</li>
+<li><code>GO:0032606</code> (1 mention)</li>
+<li><code>GO:0032623</code> (1 mention)</li>
+<li><code>GO:0002244</code> (1 mention)</li>
+<li><code>GO:0032289</code> (1 mention)</li>
+<li><code>UBERON:0002097</code> (1 mention)</li>
+<li><code>UBERON:0000044</code> (1 mention)</li>
+<li><code>UBERON:0001707</code> (1 mention)</li>
+<li><code>UBERON:0000970</code> (1 mention)</li>
+<li><code>UBERON:0000473</code> (1 mention)</li>
+<li><code>GO:0045335</code> (1 mention)</li>
+<li><code>GO:0005739</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>2 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>HP:0009830</code> (2 mentions)</li>
+<li><code>HP:0000554</code> (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Lenz-Majewski_hyperostotic_dwarfism-asta.html">← Lenz-Majewski hyperostotic dwarfism (Asta)</a>
+                
+                
+                <a href="Leprosy-falcon.html">Leprosy (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Lepromatous_Leprosy-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

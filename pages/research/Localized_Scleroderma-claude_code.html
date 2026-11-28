@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Localized Scleroderma · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Localized Scleroderma</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Localized Scleroderma</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0019562" target="_blank" rel="noopener noreferrer">MONDO:0019562</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8</span>
+                    
+                    
+                    <span class="meta-chip">33 citations</span>
+                    
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Morphea, also called localized scleroderma, is a chronic immune-mediated connective-tissue disease characterized by inflammation followed by sclerosis (fibrosis) of the skin and sometimes the subcutis, fascia, muscle, and bone. Unlike systemic sclerosis, morphea generally <strong>spares the internal organs and lacks Raynaud phenomenon, sclerodactyly, and nailfold capillary changes</strong>, and "morphea does not transit to SSc" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>). It evolves through an <strong>early inflammatory phase, a fibrotic/sclerotic phase, and an atrophic phase</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<p><strong>Key identifiers</strong> (all retrieved this session):
+- <strong>MONDO:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0019562" target="_blank" rel="noopener noreferrer">MONDO:0019562</a> (<a href="https://rarediseases.org/mondo-disease/localized-scleroderma/">rarediseases.org / Monarch</a>)
+- <strong>Orphanet:</strong> <a href="https://bioregistry.io/ORPHA:90289" target="_blank" rel="noopener noreferrer">ORPHA:90289</a> (<a href="https://www.ncbi.nlm.nih.gov/medgen/48586">MedGen 48586</a>; <a href="https://mgend.ncgm.go.jp/disease/info/DOID:8472">MGeND DOID:8472</a>)
+- <strong>Disease Ontology:</strong> <a href="http://purl.obolibrary.org/obo/DOID_8472" target="_blank" rel="noopener noreferrer">DOID:8472</a>
+- <strong>ICD-10-CM:</strong> L94.0 "Localized scleroderma [morphea]" (under L94, Other localized connective tissue disorders) (<a href="https://gesund.bund.de/en/icd-code-suche/l94-0">gesund.bund.de L94.0</a>)
+- <strong>ICD-11:</strong> morphoea entry <strong>EB61</strong> (per CISMeF ICD-11 mapping; verify against the WHO browser) (<a href="https://www.cismef.org/page/detail/en/ICD11_CA_31664821">CISMeF ICD-11 CA_31664821</a>)
+- <strong>GARD:</strong> <a href="https://bioregistry.io/GARD:0007058" target="_blank" rel="noopener noreferrer">GARD:0007058</a>; <strong>UMLS:</strong> C0036420; <strong>SNOMED CT:</strong> 90424004 (<a href="https://mgend.ncgm.go.jp/disease/info/DOID:8472">MGeND</a>)
+- <strong>MeSH:</strong> "Scleroderma, Localized" is the heading; a MeSH descriptor ID was <strong>not confirmed</strong> in this session and should be verified in the MeSH browser.</p>
+<p><strong>Synonyms / alternative names:</strong> morphea; localized morphea; circumscribed scleroderma; morphoea (British spelling). Subtype-level names include plaque morphea, generalized morphea, linear scleroderma, en coup de sabre, Parry-Romberg syndrome (progressive hemifacial atrophy), atrophoderma of Pasini and Pierini, disabling pansclerotic morphea, eosinophilic fasciitis (Shulman syndrome), and morphea profunda (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<p><strong>Data provenance:</strong> The information here is derived from <strong>aggregated disease-level resources</strong> (ontologies, society guidelines, systematic reviews, and multi-patient cohorts/registries such as the Morphea in Adults and Children [MAC] cohort and the National Registry for Childhood Onset Scleroderma [NRCOS]), not from individual EHR records.</p>
+<hr />
+<h2>2. Etiology</h2>
+<p><strong>Disease causal factors.</strong> The cause is unknown and considered multifactorial: a convergence of <strong>genetic predisposition, environmental/infectious triggers, immune/autoimmune dysregulation (abnormal cytokine production), and vascular dysfunction</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>). It is <strong>autoimmune</strong>, not infectious or purely toxic, although exogenous triggers can initiate it.</p>
+<p><strong>Genetic risk factors (susceptibility, not causal).</strong>
+- <strong>HLA class I/II associations</strong> are the strongest genetic signal. In the MAC cohort the strongest associations were with <strong>HLA-DRB1*04:04 and HLA-B*37</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019, DOI 10.3389/fimmu.2019.00908</a>). For the <strong>generalized</strong> subgroup, an HLA-DRA1*15-type allele showed an odds ratio of <strong>2.0 (95% CI 1.2–3.5, p=0.010)</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4211936">Jacobe et al., MAC HLA study, PMC4211936</a>).
+- These morphea-associated alleles <strong>differ from those in SSc</strong>, so morphea and SSc are considered <strong>immunogenetically distinct</strong>; the class I (HLA-B) signal is interpreted as supporting a CD8/NK-cell–associated response (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>).
+- The same alleles overlap with those of <strong>rheumatoid arthritis, autoimmune thyroid disease, multiple sclerosis, and type 1 diabetes</strong>, suggesting shared autoimmune susceptibility; DRB1*04:04 is shared with RA and adult SSc (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>).
+- <strong>Family history</strong> of connective-tissue/autoimmune disease occurs in ~<strong>22% of children and ~11% of adults</strong> with morphea (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>); family history of autoimmunity is reported in 10–30% (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>). <em>No causal variant, no ClinVar pathogenic allele, no GWAS-significant locus beyond HLA is established.</em></p>
+<p><strong>Environmental / exogenous risk factors.</strong> Reported triggers include <strong>skin trauma, surgery, radiation therapy, infections, and certain drugs/vaccines</strong> (BCG and adjuvanted vaccines reported); suspected infectious triggers include <strong>Epstein–Barr virus, varicella-zoster virus, and <em>Borrelia burgdorferi</em></strong>, though causation is unproven. COVID-19 infection and vaccination appear only as case reports ("the data have to be confirmed") (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>). <strong>Demographic risk factors:</strong> female sex (~4:1), and two age peaks (childhood, ~2–14 y; and fifth decade) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<p><strong>Protective factors.</strong> No established <strong>genetic protective variant</strong> and no validated <strong>dietary/lifestyle protective factor</strong> were found in this session — <strong>N/A / not reported</strong>. (Routine <em>Borrelia</em> and SSc-antibody screening are not recommended, which bears on workup, not prevention.)</p>
+<p><strong>Gene–environment interaction.</strong> The leading model is that an environmental trigger (trauma, infection, radiation) initiates injury/inflammation in a <strong>genetically (HLA-) susceptible</strong> host, which then drives the autoimmune fibrotic cascade. The <strong>Blaschko-line distribution</strong> of linear morphea has prompted the hypothesis that somatic <strong>cutaneous mosaicism</strong> creates a susceptible clone of cells that respond abnormally to a systemic trigger — explicitly a hypothesis "not yet confirmed on a molecular basis" (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>). Formal GxE quantification is not available.</p>
+<hr />
+<h2>3. Phenotypes</h2>
+<p>Phenotypes are organized by subtype; frequencies are cohort-derived. Suggested HPO term <strong>labels</strong> are given; specific HPO IDs should be verified in the HPO browser (I did not retrieve individual HPO numeric IDs this session, so I give labels rather than fabricate IDs).</p>
+<p><strong>Cutaneous (clinical signs / physical manifestations).</strong>
+- <strong>Sclerotic/indurated skin plaques</strong> — the defining lesion; round/oval brownish or yellow-whitish plaques, active lesions with a violaceous <strong>"lilac ring"</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>HPO suggestion: "Hidebound skin"/"Skin plaque"/"Sclerosis of skin."</em>
+- <strong>Dyspigmentation</strong> (hyper- and hypopigmentation), <strong>skin atrophy</strong> in late phase (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>HPO: "Hyperpigmentation of the skin," "Hypopigmented skin patches," "Cutaneous atrophy."</em>
+- <strong>Dermal/subcutaneous atrophy, "en coup de sabre" linear facial depression</strong>, and <strong>progressive hemifacial atrophy (Parry-Romberg)</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3272788/">adult ECDS/PRS series, PMC3272788</a>). <em>HPO: "Facial asymmetry," "Hemifacial atrophy."</em></p>
+<p><strong>Musculoskeletal (signs / functional).</strong>
+- <strong>Flexion contractures, limb-length discrepancy, growth retardation of the affected limb, myositis, fasciitis, arthritis</strong> — especially in <strong>linear morphea</strong>, which accounts for <strong>40–65% of juvenile morphea</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>HPO: "Joint contracture," "Limb length discrepancy," "Arthritis," "Myositis."</em>
+- <strong>Disabling pansclerotic morphea:</strong> contractures, chronic ulcers, poor wound healing; can be fatal (sepsis, gangrene, cardiopulmonary disease) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>HPO: "Skin ulcer," "Joint contracture."</em></p>
+<p><strong>Extracutaneous — neurologic/ocular (signs).</strong> In head/face linear morphea (ECDS/PRS): <strong>seizures (most common), headache/migraine, focal deficits, movement disorders, trigeminal neuralgia, facial palsy, neuropathy</strong>; <strong>uveitis</strong> and other ocular involvement (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3272788/">Neurologic involvement in ECDS, PMC3272788</a>). Rheumatologic/ophthalmologic/neurologic findings appear in <strong>up to ~20%</strong> of head-variant cases, nervous system most common; notably, <strong>up to ~50%</strong> of patients with head/face lesions have intracranial MRI abnormalities even without neurologic symptoms (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>HPO: "Seizure," "Migraine," "Uveitis," "Abnormality of the eye."</em></p>
+<p><strong>Laboratory abnormalities.</strong> Hypergammaglobulinemia, elevated CRP, <strong>eosinophilia</strong> (esp. active linear morphea), elevated creatine kinase with myositis, positive autoantibodies (see §10) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). <em>LOINC terms apply to ANA, ESR, CRP, CK, eosinophil count.</em></p>
+<p><strong>Phenotype characteristics.</strong>
+- <strong>Age of onset:</strong> bimodal — juvenile mean ~10 y and adult mean ~45 y; congenital forms rare (skin lesions at birth in ~0.8% of juvenile cases, mean diagnostic delay 3.9 y) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).
+- <strong>Severity:</strong> variable — from self-limited guttate/plaque lesions to disfiguring/disabling linear and pansclerotic disease.
+- <strong>Progression:</strong> chronic, relapsing-remitting (see §8/§11); sclerosis often improves over <strong>2–5 years</strong> while atrophy may increase (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).
+- <strong>Frequency:</strong> plaque is the commonest <strong>adult</strong> form; linear is the commonest <strong>childhood</strong> form; mixed ~15% of juvenile cases (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<p><strong>Quality-of-life impact.</strong> Mixed evidence. Some pediatric cohorts found HRQoL near that of healthy children (median CDLQI ~5/30) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8892867">QoL cohort summaries incl. Orzechowski 2009; Ardalan</a>); others (PedsQL, n=40) found <strong>poorer QoL, especially emotional domain</strong>, linked to relapse, diagnostic delay, and adolescent onset (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4043758/">PReS JLS QoL study, PMC4043758</a>). <strong>Symptoms and functional impairment are the key QoL determinants in both children and adults, independent of subtype</strong> (<a href="https://scholars.duke.edu/individual/pub1116494">Duke/MAC QoL analysis</a>). A 2022 psychometric analysis argued the <strong>CDLQI likely underestimates</strong> morphea QoL impact (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8892867">Ardalan 2022, PMC8892867</a>); a disease-specific instrument (<strong>LoSQI</strong>) is under validation (<a href="https://clinicaltrials.gov/study/NCT07908108">NCT07908108</a>).</p>
+<hr />
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal genes:</strong> <strong>None / N/A.</strong> Morphea is not a single-gene disorder; no gene is required to cause it (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Pathogenic variants / ACMG classification / allele frequencies (gnomAD, 1000G):</strong> <strong>N/A</strong> — there is no established pathogenic Mendelian variant to classify.</li>
+<li><strong>Susceptibility loci (not "pathogenic variants"):</strong> HLA class I/II — <strong>HLA-DRB1*04:04, HLA-B*37</strong>, and a DRA1/DRB1*15-associated allele in generalized morphea (OR 2.0) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4211936">Jacobe MAC HLA study, PMC4211936</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). Candidate non-HLA genes mentioned include <strong>TGFB (TGF-β) and CCL2/MCP-1</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). HGNC symbols for suggested annotation: <em>HLA-DRB1</em>, <em>HLA-B</em>, <em>HLA-DRA</em>, <em>TGFB1</em>, <em>CCL2</em>, <em>CXCL9</em>, <em>CXCL10</em>, <em>CXCL11</em>, <em>IFNG</em>.</li>
+<li><strong>Modifier genes:</strong> Not formally defined; HLA type and ANA status act as severity/relapse <strong>markers</strong> (see §11) rather than proven modifiers.</li>
+<li><strong>Epigenetics:</strong> No robust, morphea-specific DNA-methylation or histone study was retrieved; the Blaschko-line/mosaicism hypothesis implies a somatic/epigenetic clonal mechanism but is <strong>unconfirmed molecularly</strong> (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>). Treat as <strong>not established</strong>.</li>
+<li><strong>Chromosomal abnormalities:</strong> <strong>N/A / none reported.</strong></li>
+<li><strong>Somatic vs germline:</strong> HLA associations are germline susceptibility; the mosaicism hypothesis (if true) would be <strong>somatic</strong> but is unproven (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>).</li>
+</ul>
+<hr />
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Physical/iatrogenic exposures:</strong> skin trauma, surgery, <strong>ionizing radiation</strong> (notably radiotherapy-induced morphea, e.g., post-breast-radiation), injections (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Infectious agents (suspected triggers, unproven):</strong> <em>Borrelia burgdorferi</em>, <strong>Epstein–Barr virus</strong>, <strong>varicella-zoster virus</strong>; routine <em>Borrelia</em> testing is <strong>not</strong> recommended except in highly suspicious cases, reflecting weak/inconsistent evidence (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). NCBI Taxonomy suggestions: <em>Borreliella burgdorferi</em>, <em>Human gammaherpesvirus 4</em> (EBV), <em>Human alphaherpesvirus 3</em> (VZV).</li>
+<li><strong>Drugs/vaccines (case-level):</strong> BCG and adjuvanted vaccines; COVID-19 vaccination/infection — case reports only (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Lifestyle factors (smoking, diet, alcohol):</strong> <strong>No established association</strong> retrieved — not reported as causal.</li>
+</ul>
+<hr />
+<h2>6. Mechanism / Pathophysiology</h2>
+<h3>Ordered causal chain (initiating lesion → clinical manifestation)</h3>
+<ol>
+<li><strong>A trigger in a genetically (HLA-) susceptible host</strong> — skin trauma, radiation, infection, or an unknown stimulus — <strong>leads to</strong> endothelial/vascular and keratinocyte injury and local immune activation. <em>(Inferred; triggers are associative.)</em> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>)</li>
+<li>This <strong>results in</strong> a <strong>TH1 / type-1 interferon–dominated inflammatory phase</strong>: CD4⁺ T cells predominate, regulatory T cells are <strong>decreased</strong>, and an <strong>IFN-γ/IFN-α/TNF-α gene signature</strong> is induced (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019, DOI 10.3389/fimmu.2019.00908</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li>IFN-γ <strong>drives</strong> production of the <strong>CXCR3-ligand chemokines CXCL9, CXCL10, and CXCL11</strong>, which recruit more IFN-γ–producing T cells (TH1 amplification loop); CXCL9/CXCL10 rise in blood and lesional skin and <strong>correlate with disease activity</strong> (mLoSSI, PGA) (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>).</li>
+<li><strong>Branch — vascular:</strong> the inflammatory milieu <strong>results in</strong> endothelial activation — raised soluble <strong>E-selectin and VCAM-1</strong> in serum and upregulated <strong>VCAM-1</strong> in lesional skin, with <strong>reduced stromal CD34</strong> — producing microvascular injury and a "sclerodermatous" vessel pattern (thickened walls, narrowed lumens) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li>Resident <strong>macrophages + activated T cells</strong> signaling to fibroblasts (via the TH1/IFN-γ network, and increasingly <strong>TH2/TH17/TH22</strong> cytokines) <strong>leads to</strong> a proposed <strong>shift toward a TH2/profibrotic program</strong> (IL-4, IL-5, IL-6, IL-10, IL-13) in the later "collagenous" phase — explicitly a <strong>hypothesis</strong> (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>TGF-β and IL-4</strong> <strong>result in</strong> fibroblast activation → <strong>increased collagen synthesis and dermal/subcutaneous collagen deposition → fibrosis/sclerosis</strong>. (Note the apparent paradox that IFN-γ itself <em>inhibits</em> procollagen synthesis, which is why the field posits the TH1→TH2 transition.) <em>(Fibroblast-activation link stated as inference: "this may synergistically promote fibroblasts to increase collagen expression… eventually causing increased collagen deposition, fibrosis.")</em> (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>)</li>
+<li>Sustained fibrosis <strong>leads to</strong> the clinical sclerotic plaque, and over <strong>2–5 years</strong> sclerosis may regress while <strong>tissue atrophy</strong> of dermis, fat, muscle, and bone <strong>results in</strong> the final atrophic deformities (contractures, hemifacial atrophy, limb-length discrepancy) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+</ol>
+<h3>Checklist detail</h3>
+<ul>
+<li><strong>Molecular pathways:</strong> IFN-γ/JAK-STAT (STAT1) signaling; CXCR3–CXCL9/10/11 chemokine axis; TGF-β/SMAD profibrotic signaling. Reactome/KEGG suggestions: "Interferon gamma signaling," "Chemokine receptors bind chemokines," "Signaling by TGF-beta receptor complex." JAK-STAT relevance is supported clinically by response to JAK inhibitors (§12).</li>
+<li><strong>Cellular processes:</strong> chronic inflammation, T-cell activation/differentiation, antigen presentation, fibroblast activation, collagen fibril organization, impaired immune tolerance (reduced Tregs). GO suggestions: "collagen fibril organization" (<a href="http://purl.obolibrary.org/obo/GO_0030199" target="_blank" rel="noopener noreferrer">GO:0030199</a> — verify), "response to interferon-gamma," "fibroblast proliferation," "extracellular matrix organization," "T-helper 1 cell differentiation."</li>
+<li><strong>Protein dysfunction:</strong> this is a dysregulation (over-activation) rather than a misfolded-protein disease; effector output is <strong>excess type I/III collagen</strong> from activated fibroblasts.</li>
+<li><strong>Immune involvement:</strong> autoimmunity with a TH1/IFN signature early, proposed TH2 skew later; decreased Tregs; plasma cells prominent on histology; autoantibodies (ANA, anti-histone, anti-ssDNA) (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Tissue damage mechanism:</strong> immune-mediated <strong>fibrosis</strong> plus microvascular injury; atrophy in late phase.</li>
+<li><strong>Molecular profiling (transcriptomics [C]):</strong> SSc skin-transcriptome classifiers place morphea lesions in the <strong>"inflammatory" group</strong>, expressing primarily T-lymphocyte and IFN-γ–related genes (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>). A 2024 transcriptomic study of 28 juvenile patients found interferon signaling, antigen presentation, and T-helper differentiation central to active disease and proposed a type-1/3 → type-2 immune transition (hypothesis) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8215272">Frontiers in Pediatrics RNA-seq, PMC8215272</a>; <a href="https://www.hmpgloballearningnetwork.com/site/derm-app/news/type-2-inflammation-and-fibrotic-pathways-drive-localized-scleroderma">type-2 inflammation summary</a>).</li>
+<li><strong>Proteomics/metabolomics/lipidomics/single-cell/spatial:</strong> no robust morphea-specific datasets retrieved — <strong>largely not established</strong> for this disease (a recognized gap).</li>
+</ul>
+<p><strong>Suggested CL (cell) terms:</strong> fibroblast (<a href="http://purl.obolibrary.org/obo/CL_0000057" target="_blank" rel="noopener noreferrer">CL:0000057</a>), CD4-positive T cell, CD8-positive T cell, T-helper 1 cell, regulatory T cell, plasma cell, macrophage, endothelial cell, NK cell, eosinophil (verify IDs). <strong>Suggested CHEBI:</strong> collagen is a protein (not CHEBI); relevant chemicals are methotrexate (<a href="http://purl.obolibrary.org/obo/CHEBI_44185" target="_blank" rel="noopener noreferrer">CHEBI:44185</a> — verify), bleomycin.</p>
+<hr />
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> <strong>skin</strong> (<a href="http://purl.obolibrary.org/obo/UBERON_0002097" target="_blank" rel="noopener noreferrer">UBERON:0002097</a> skin of body — verify) — dermis and epidermis.</li>
+<li><strong>Deeper/secondary tissues:</strong> <strong>subcutaneous adipose tissue, fascia, skeletal muscle, and bone</strong> (in deep, linear, and pansclerotic subtypes); <strong>joints</strong> (contractures) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Extracutaneous organ involvement (head variants):</strong> <strong>central nervous system/brain</strong> (seizures, intracranial MRI lesions up to ~50% in head lesions), <strong>eye</strong> (uveitis, adnexal/orbital involvement), oral/dental structures (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3272788/">ECDS neurologic series, PMC3272788</a>).</li>
+<li><strong>Body systems:</strong> integumentary (primary); musculoskeletal; nervous and ocular (regional, head variants). <strong>Internal viscera (lung, heart, kidney, GI) are characteristically spared</strong> — a key contrast with SSc (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+</ul>
+<p><strong>Tissue/cell level:</strong> connective tissue (dermal/subcutaneous), with <strong>fibroblasts</strong> as effector cells; perivascular and periadnexal infiltrates of <strong>lymphocytes, plasma cells, histiocytes/macrophages, eosinophils</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>).</p>
+<p><strong>Subcellular level:</strong> nucleus (autoantibody targets — ANA, histones, ssDNA); extracellular compartment (collagen/ECM deposition). GO cellular-component suggestions: "collagen-containing extracellular matrix," "nucleosome."</p>
+<p><strong>Localization &amp; lateralization:</strong> Linear morphea is typically <strong>unilateral and follows Blaschko lines</strong>; en coup de sabre is paramedian frontoparietal; Parry-Romberg is <strong>hemifacial</strong>. Plaque/generalized morphea favors the <strong>trunk</strong> (submammary, groin, lower abdomen) and may be bilateral/asymmetric (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<hr />
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> bimodal — juvenile (mean ~10 y) and adult (mean ~45 y); insidious/subacute; congenital onset rare (~0.8% at birth) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Stages:</strong> inflammatory → fibrotic/sclerotic → atrophic (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Progression rate / course:</strong> variable; classically <strong>relapsing-remitting over many years</strong> rather than monophasic. In a prospective cohort with &gt;5-year follow-up (n=50), <strong>recurrence occurred in 44%</strong>, most often reactivation within an existing lesion (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6798764/">Florez-Pollack et al., PMC6798764</a>).</li>
+<li><strong>Duration:</strong> chronic; active disease may persist/relapse for years; sclerosis often softens over 2–5 years but atrophy/damage may persist (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Remission:</strong> can be spontaneous (esp. guttate/plaque) or treatment-induced; median time from remission to first relapse in juvenile disease ~<strong>26 months</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Critical window:</strong> the <strong>early inflammatory/active phase is the therapeutic window</strong> — treatment aims to halt inflammation before irreversible fibrosis/atrophy and growth deformity, especially in children (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6691928">SHARE recommendations, PMC6691928</a>).</li>
+</ul>
+<hr />
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Incidence:</strong> total annual incidence <strong>~4–27 new cases per million</strong> people; <strong>juvenile LS ~3.4–9 per million children/year</strong>. The classic population-based estimate (Olmsted County, MN, 1960–1993, Rochester Epidemiology Project) gave an age/sex-adjusted incidence of <strong>2.7 per 100,000 (95% CI 2.1–3.3)</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/2938024">Olmsted County epidemiology, PMC2938024</a>).</li>
+<li><strong>Prevalence:</strong> cumulative-incidence-based estimate ~<strong>2 per 1,000 by age 80</strong> (Olmsted) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/2938024">Olmsted study</a>).</li>
+<li><strong>Inheritance pattern:</strong> <strong>not Mendelian — multifactorial/polygenic</strong> with HLA-linked susceptibility; penetrance, expressivity, anticipation, mosaicism (as a Mendelian concept), founder effects, consanguinity, and carrier frequency are <strong>N/A</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). (Germline/somatic mosaicism appears only as an unproven Blaschko-line hypothesis — <a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">Torok 2019</a>.)</li>
+<li><strong>Sex ratio:</strong> female predominance, <strong>~2.4–4:1</strong> (≈4:1 overall; ~2:1 in congenital) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Ancestry/geography:</strong> most affected are <strong>Caucasian</strong>, then Hispanic/Latin American populations; nearly two-thirds of all cases are adults (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). No endemic geographic focus is established.</li>
+<li><strong>Comorbid cancer signal:</strong> a population-based cohort reported modestly elevated overall cancer incidence (standardized incidence ratio <strong>1.24, 95% CI 1.14–1.35</strong> for morphea) — cited from a secondary summary and should be verified against the primary JAMA Dermatology paper before use (<a href="https://practicaldermatology.com/news/study-morphea-linked-to-elevated-cancer-incidence/2489017/">Practical Dermatology summary</a>).</li>
+</ul>
+<hr />
+<h2>10. Diagnostics</h2>
+<p><strong>Diagnosis is primarily clinical</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</p>
+<ul>
+<li><strong>Biopsy/histopathology</strong> (reserved for atypical cases; must be <strong>deep</strong>, no pathognomonic finding): active lesions show thick reticular collagen bundles with <strong>perivascular/periadnexal lymphocytes, plasma cells, eosinophils, histiocytes</strong>; fibrotic lesions show avascular dermis with thickened vessel walls/narrow lumens (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). SNOMED CT / pathology annotation applies.</li>
+<li><strong>Laboratory / autoantibodies:</strong> up to ~<strong>50%</strong> have elevated ANA, anti-histone (AHA), and/or anti-ssDNA; <strong>ANA positive in up to ~70%</strong> and associated with deeper/extracutaneous involvement and relapse; <strong>anti-ssDNA and AHA correlate with disease severity/activity</strong> and joint-muscle involvement; other autoantibodies &lt;10% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://www.jrheum.org/content/jrheum/35/12/2439.full.pdf">J Rheumatol cohort</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4153681/table/T4">PLOS One AHA/ssDNA</a>). Baseline labs: CBC, renal/liver function, <strong>CK</strong> (myositis), <strong>RF</strong> (if arthritis suspected), CRP; eosinophilia and hypergammaglobulinemia in active linear disease. <strong>Routine SSc-specific antibody and <em>Borrelia</em> screening are not recommended.</strong> A 2024 review stresses that morphea has <strong>very few validated serological biomarkers</strong>, far fewer than lupus/RA (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10988679/">Biomarkers in LS review, PMC10988679</a>).</li>
+<li><strong>Imaging:</strong> <strong>MRI brain with contrast</strong> recommended for all head/face/neck lesions; <strong>MRI of the limb with contrast</strong> for deep/extensive limb disease; <strong>high-frequency ultrasound (~20 MHz)</strong> comparable to LoSCAT but not yet validated for routine use; <strong>thermography</strong> (sensitivity 80.7%, specificity 86.3%); dermoscopy (whitish fibrotic beams, linear branching vessels); RCM/OCT ancillary (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Clinical activity/damage scoring (not diagnostic):</strong> the <strong>LoSCAT</strong> combines a Physician Global Assessment, the <strong>mLoSSI</strong> (modified Localized Scleroderma Skin Severity Index — activity: new lesion/extension, erythema, skin thickness over 18 body sites) and the <strong>LoSDI</strong> (damage). mLoSSI shows excellent inter-rater reliability and sensitivity to change; LoSDI is less precise; an adult adaptation is validated (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6006585/">LoSCAT reliability, PMC6006585</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137731/">adult LoSCAT validation, PMC6137731</a>).</li>
+<li><strong>Genetic testing / WGS / WES / panels / karyotype / repeat-expansion / newborn screening:</strong> <strong>N/A</strong> — morphea is not a monogenic disease and genetic testing has <strong>no diagnostic role</strong>.</li>
+<li><strong>Omics-based diagnostics:</strong> experimental only (research transcriptomic signatures; no clinical assay) — <strong>not established</strong>.</li>
+<li><strong>Differential diagnosis:</strong> systemic sclerosis (presence of Raynaud/sclerodactyly/organ disease, SSc-specific antibodies, nailfold capillary changes argue for SSc), lichen sclerosus (co-occurs in ~6%), eosinophilic fasciitis, scleredema, scleromyxedema, nephrogenic systemic fibrosis, chronic graft-versus-host disease, lipodermatosclerosis, and (for ECDS/PRS) lupus panniculitis (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+</ul>
+<hr />
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Survival/mortality:</strong> generally <strong>not life-threatening</strong>; normal life expectancy in typical morphea. The exception is <strong>disabling pansclerotic morphea</strong>, where death from sepsis, gangrene, or cardiopulmonary complications is reported (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Morbidity/disability:</strong> major morbidity is <strong>cosmetic and functional</strong> — contractures, limb-length discrepancy, growth impairment, facial atrophy/disfigurement, and (head variants) neurologic/ocular disease; these drive the QoL burden (§3) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Disease course / relapse:</strong> relapsing-remitting; overall recurrence ~<strong>25%</strong> (children ~27%, adults ~17%); <strong>44%</strong> recurrence over &gt;5-year follow-up in one cohort; <strong>~15%</strong> pediatric relapse at 2 years after methotrexate; ~<strong>one-third</strong> relapse on steroid monotherapy; ~<strong>half</strong> relapse within 3 years after UVA1 (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6798764/">Florez-Pollack, PMC6798764</a>).</li>
+<li><strong>Prognostic factors:</strong> older age at onset, <strong>linear (limb) and generalized subtypes, delayed treatment, and ANA positivity</strong> predict relapse/worse course. In a pediatric registry, <strong>ANA positivity was 60% in relapsers vs 24% in non-relapsers</strong>; a multicenter study found <strong>extracutaneous findings increased relapse risk 5.7×</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6462250">Kurzinski/NRCOS, PMC6462250</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/37378874/">Turkish multicenter, PubMed 37378874</a>).</li>
+<li><strong>Recovery:</strong> with early systemic therapy many achieve remission; ≥1 year of methotrexate is associated with prolonged remission (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). Established atrophy/contractures are typically <strong>irreversible</strong>, underscoring early treatment.</li>
+</ul>
+<hr />
+<h2>12. Treatment</h2>
+<p>(Suggested <strong>NCIT</strong> intervention term labels given; verify numeric IDs.)</p>
+<p><strong>Topical / localized (mild, superficial, limited plaque disease):</strong>
+- <strong>Topical corticosteroids</strong> (moderate–high potency, ≤3 months) — no controlled trials in morphea.
+- <strong>Tacrolimus 0.1% ointment</strong> BID ×12 wk — significantly improved clinical scores/skin hardness in a placebo-controlled pilot.
+- <strong>Calcipotriene/calcipotriol 0.005%</strong> BID ×3 mo (vitamin-D analog), alone or with phototherapy.
+- <strong>Imiquimod 5%</strong> — reduced thickening over 9 months (plaque morphea) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</p>
+<p><strong>Phototherapy:</strong> <strong>UVA1</strong> (3–5×/week, ≥30 sessions); <strong>medium-dose UVA1 superior</strong> in a 64-patient RCT; ~half relapse within 3 years; PUVA avoided in children (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</p>
+<p><strong>Systemic (deep, linear, generalized, pansclerotic, rapidly progressive, or function-threatening disease):</strong>
+- <strong>Methotrexate — drug of choice.</strong> Pediatric dose <strong>0.3–0.6 mg/kg/week (15 mg/m²/week)</strong>; adult <strong>15–25 mg/week</strong>, usually with a <strong>corticosteroid bridge</strong> (IV methylprednisolone 30 mg/kg/day ×3 days monthly, or prednisone 1–2 mg/kg/day). In an RCT of <strong>70 children, methotrexate was superior to prednisone at 12 months</strong>, and the prednisone-only arm had a ~3× higher recurrence risk; ~15% relapse at 2 years; SHARE advises continuing ≥1 year after remission and off steroids (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/22657157/">long-term MTX in JLS, PubMed 22657157</a>). NCIT: "Methotrexate," "Prednisone," "Methylprednisolone."
+- <strong>Systemic corticosteroids</strong> (0.5–1 mg/kg/day) — bridging; ~1/3 relapse (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).
+- <strong>Mycophenolate mofetil</strong> — second-line when MTX fails/contraindicated; retrospective cohorts show comparable relapse-free survival to MTX (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>). NCIT: "Mycophenolate Mofetil."</p>
+<p><strong>Targeted/biologic &amp; advanced (refractory disease; mostly case series/off-label):</strong>
+- <strong>Abatacept</strong> (CTLA4-Ig) — ~80% responders at 12 months (16.7% discontinued for adverse events).
+- <strong>Tocilizumab</strong> (anti-IL-6R) — small pediatric series.
+- <strong>JAK inhibitors:</strong> <strong>tofacitinib</strong> improved skin and joint mobility in refractory generalized morphea (response from month 1); single reports of baricitinib; ruxolitinib failed in one child — mechanistically consistent with the IFN/JAK-STAT signature.
+- <strong>Imatinib</strong> — case reports (RCT NCT00479934 noted). 
+- <strong>Not supported / ineffective:</strong> oral calcitriol, D-penicillamine, IFN-γ. Miscellaneous case-level agents: cyclosporine, hydroxychloroquine, azathioprine, retinoids, IVIG, rituximab, infliximab (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>). NCIT: "Abatacept," "Tocilizumab," "Tofacitinib," "Imatinib," "Rituximab."</p>
+<p><strong>Gene/cell/RNA-based therapy:</strong> <strong>N/A / none</strong> — no gene-replacement or CRISPR approach applies to this non-monogenic disease.</p>
+<p><strong>Surgical/rehabilitative:</strong> reconstructive/plastic surgery (autologous fat grafting, flaps) for burnt-out facial/limb atrophy (performed in inactive disease); <strong>physical and occupational therapy</strong> for contractures/limb function; orthopedic management of limb-length discrepancy — supportive, per consensus guidelines (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6691928">SHARE, PMC6691928</a>).</p>
+<p><strong>Treatment strategy:</strong> consensus treatment plans exist from <strong>North American CARRA</strong> (methotrexate alone; MTX + oral steroids; MTX + IV steroids; endorsed by &gt;90% of responding pediatric rheumatologists) and <strong>European SHARE 2019</strong> (systemic steroids in active phase + concurrent DMARD, typically methotrexate), though underlying evidence is only moderate (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3403067/">CARRA consensus, PMC3403067</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6691928">SHARE 2019, PMC6691928</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/21645943/">systematic review/algorithm, PubMed 21645943</a>).</p>
+<p><strong>Pharmacogenomics / personalized medicine:</strong> no morphea-specific pharmacogenomic guidance retrieved — <strong>not established</strong> (general MTX pharmacogenetics exist but are not morphea-specific).</p>
+<hr />
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong> <strong>None established</strong> — causes/triggers are not modifiable enough for primary prevention; no vaccine or risk-factor-modification strategy applies. <strong>N/A</strong> (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023, PMID 36860340</a>).</li>
+<li><strong>Secondary prevention (early detection/early treatment):</strong> the practical prevention strategy is <strong>early recognition of active disease and prompt systemic therapy to prevent irreversible fibrosis, atrophy, contractures, and growth deformity</strong> — especially in children, and prompt MRI/neurology/ophthalmology surveillance for head-variant (ECDS/PRS) patients (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6691928">SHARE 2019, PMC6691928</a>).</li>
+<li><strong>Tertiary prevention:</strong> long-term follow-up (≥2 years after stopping treatment) to catch relapse; monitoring and management of contractures, ocular/neurologic complications, and functional/psychosocial sequelae (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">Papara 2023</a>).</li>
+<li><strong>Immunization, genetic/carrier/newborn screening, prophylactic medication:</strong> <strong>N/A</strong> (non-monogenic, non-infectious, no proven prophylaxis).</li>
+<li><strong>Counseling:</strong> no genetic counseling role (not inherited in a Mendelian way); psychosocial support is relevant given disfigurement, particularly in adolescents.</li>
+</ul>
+<hr />
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Taxonomy:</strong> human disease — <em>Homo sapiens</em> (NCBI:txid9606).</li>
+<li><strong>Natural disease in other species / veterinary relevance:</strong> <strong>No naturally occurring animal counterpart of morphea was retrieved</strong> in this session (no OMIA entry surfaced). Localized scleroderma is essentially a <strong>human-specific</strong> clinical entity; "scleroderma-like"/fibrosing skin conditions in animals are not established homologues. Treat as <strong>not reported / N/A</strong>.</li>
+<li><strong>Orthologous genes / comparative biology / zoonosis:</strong> <strong>N/A</strong> (no causal gene; non-infectious, non-zoonotic). The relevant immune genes (<em>IFNG</em>, <em>CXCL9/10/11</em>, <em>TGFB1</em>, HLA/MHC) are conserved in mammals, enabling induced models (§15), but there is no natural orthologous disease.</li>
+</ul>
+<p><em>(This section is genuinely sparse for morphea; the gap is a true absence of data, not an omission.)</em></p>
+<hr />
+<h2>15. Model Organisms</h2>
+<p>There is <strong>no faithful genetic mouse model of morphea itself</strong>; models reproduce <strong>skin fibrosis</strong> and are largely shared with/derived from systemic sclerosis research.</p>
+<ul>
+<li><strong>Bleomycin-induced dermal sclerosis (mouse) [M]</strong> — the standard inducible model. Repeated <strong>local (subcutaneous/intradermal) bleomycin injections</strong> produce dermal sclerosis, with severity varying by strain; it mimics the <strong>early inflammatory and fibrotic</strong> stages (<a href="https://link.springer.com/content/pdf/10.1007/978-1-4939-0404-4_11.pdf">Springer protocol / bleomycin model</a>). An <strong>acute subcutaneous bleomycin model specifically framed as morphea</strong> was reported to depend on the <strong>CXCL9/CXCR3 axis</strong>, aligning with the human CXCR3-chemokine signature (medRxiv preprint — <strong>not peer-reviewed</strong>) (<a href="https://www.medrxiv.org/content/10.1101/19000844.full.pdf">medRxiv 19000844</a>). <em>Applications:</em> dissecting inflammation→fibrosis, chemokine/IFN pathways, drug testing. <em>Limitations:</em> models fibrosis, not the full morphea phenotype (subtypes, Blaschko distribution, atrophic phase); more an SSc-type model.</li>
+<li><strong>Tight-skin (Tsk/+) mouse [M]</strong> — a <em>Fbn1</em> (fibrillin-1) <strong>duplication</strong> causing tight skin; used for sclerosis genetics but <strong>lacks the early inflammatory infiltrate</strong>, limiting relevance to inflammatory morphea (<a href="https://link.springer.com/content/pdf/10.1007/978-1-0716-1382-5_25.pdf">Tsk model discussion</a>).</li>
+<li><strong>UVA1 therapeutic models [M/IV]</strong> — bleomycin-injected <strong>BALB/c mice</strong> treated with UVA1 showed reduced fibroblast proliferation and improved dermal sclerosis (high-dose UVA1 most effective), used to study the mechanism of UVA1 phototherapy (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3597330/">UVA1 mouse study, PMC3597330</a>).</li>
+<li><strong>In vitro:</strong> cultured dermal <strong>fibroblasts</strong> (patient-derived or bleomycin/TGF-β–stimulated) for collagen-synthesis and antifibrotic-drug studies (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3597330/">UVA1 fibroblast work, PMC3597330</a>).</li>
+<li><strong>Resources:</strong> MGI/IMSR for Tsk and relevant knockouts (<em>Ifng</em>, <em>Cxcr3</em>, <em>Tgfb1</em>). No morphea-specific registry model exists.</li>
+</ul>
+<p><strong>Phenotype recapitulation:</strong> partial — these models capture <strong>inflammation-driven dermal fibrosis and some chemokine/cytokine biology</strong>, but none reproduces morphea's subtype diversity, linear/Blaschkoid pattern, extracutaneous head-variant disease, or the late atrophic phase.</p>
+<hr />
+<h2>Key Evidence Sources (primary + authoritative reviews)</h2>
+<ul>
+<li><strong>Papara C, De Luca DA, Bieber K, Vorobyev A, Ludwig RJ. "Morphea: The 2023 update." <em>Front Med (Lausanne)</em> 2023;10:1108623. <a href="https://pubmed.ncbi.nlm.nih.gov/36860340/" target="_blank" rel="noopener noreferrer">PMID 36860340</a> / PMCID PMC9969991. DOI 10.3389/fmed.2023.1108623</strong> — the principal comprehensive source used here. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9969991/">link</a></li>
+<li><strong>Torok KS, Li SC, Jacobe HM, Taber SF, Stevens AM, Zulian F, Lu TT. "Immunopathogenesis of Pediatric Localized Scleroderma." <em>Front Immunol</em> 2019;10:908. DOI 10.3389/fimmu.2019.00908</strong> — mechanism/immunology. <a href="https://www.frontiersin.org/articles/10.3389/fimmu.2019.00908/full">link</a></li>
+<li><strong>Jacobe H et al. HLA class I/II associations in the MAC cohort</strong> (DRB1*04:04, HLA-B*37; generalized OR 2.0). <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4211936">PMC4211936</a></li>
+<li><strong>Zulian F et al. Long-term methotrexate in juvenile localized scleroderma.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/22657157/">PubMed 22657157</a> · <strong>Systematic review/therapeutic algorithm.</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/21645943/">PubMed 21645943</a></li>
+<li><strong>SHARE 2019 consensus</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6691928">PMC6691928</a> · <strong>CARRA consensus treatment plans</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3403067/">PMC3403067</a></li>
+<li><strong>Florez-Pollack et al., long-term recurrence cohort</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6798764/">PMC6798764</a> · <strong>Kurzinski/NRCOS relapse predictors</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6462250">PMC6462250</a> · <strong>Turkish multicenter relapse study</strong> <a href="https://pubmed.ncbi.nlm.nih.gov/37378874/">PubMed 37378874</a></li>
+<li><strong>LoSCAT reliability (pediatric)</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6006585/">PMC6006585</a> · <strong>adult LoSCAT validation</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6137731/">PMC6137731</a></li>
+<li><strong>Biomarkers in localized scleroderma (2024 review)</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10988679/">PMC10988679</a> · <strong>Autoantibody (AHA/ssDNA) cohorts</strong> <a href="https://www.jrheum.org/content/jrheum/35/12/2439.full.pdf">J Rheumatol</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4153681/table/T4">PMC4153681</a></li>
+<li><strong>Neurologic involvement in ECDS</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3272788/">PMC3272788</a> · <strong>Olmsted County epidemiology</strong> <a href="https://pmc.ncbi.nlm.nih.gov/articles/2938024">PMC2938024</a></li>
+<li><strong>Bleomycin/UVA1 mouse models</strong> <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3597330/">PMC3597330</a>, <a href="https://www.medrxiv.org/content/10.1101/19000844.full.pdf">medRxiv 19000844 (preprint)</a> · <strong>Identifiers</strong> <a href="https://www.ncbi.nlm.nih.gov/medgen/48586">MedGen 48586</a>, <a href="https://gesund.bund.de/en/icd-code-suche/l94-0">ICD-10 L94.0</a>, <a href="https://rarediseases.org/mondo-disease/localized-scleroderma/">MONDO:0019562</a></li>
+</ul>
+<h3>Caveats on reliability</h3>
+<ul>
+<li><strong>Morphea is understudied</strong>; much mechanism is extrapolated from SSc, and the TH1→TH2 fibrotic-transition model is an explicit <strong>hypothesis</strong>, not demonstrated causation.</li>
+<li>Several figures (cancer SIR; some QoL and relapse percentages) come from <strong>secondary summaries or abstracts</strong>; verify against the primary papers before entering into a knowledge base.</li>
+<li><strong>Ontology IDs:</strong> confirmed/retrieved disease IDs are given inline (MONDO, ORPHA, DOID, ICD-10 L94.0, ICD-11 EB61, GARD, UMLS, SNOMED). For <strong>HPO, GO, CL, UBERON, NCIT, and CHEBI</strong> I provide term <strong>labels</strong> as suggestions and flagged where numeric IDs still need verification, rather than assert identifiers I did not retrieve. The <strong>MeSH descriptor ID was not confirmed</strong> this session.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>22</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>22</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>8</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:36860340</code> <em>(abstract only)</em>: "morphea does not transit to SSc"</li>
+<li>closest text in source: "Morphea, also known as localized scleroderma, is a chronic inflammatory connective tissue disorder with variable clinical presentations, that affects both adults and children"</li>
+<li><code>PMC:PMC9969991</code> <em>(abstract only)</em>: "morphea does not transit to SSc"</li>
+<li>closest text in source: "Morphea, also known as localized scleroderma, is a chronic inflammatory connective tissue disorder with variable clinical presentations, that affects both adults and children"</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>DOI:10.3389/fimmu.2019.00908</code>: "not yet confirmed on a molecular basis"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Local_Anesthetic_Systemic_Toxicity-claude_code.html">← Local Anesthetic Systemic Toxicity (Claude Code)</a>
+                
+                
+                <a href="Loeys-Dietz_Syndrome-cyberian-codex.html">Loeys-Dietz Syndrome (Cyberian Codex) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Localized_Scleroderma.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Localized_Scleroderma-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLPBP Deficiency · Asta · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>PLPBP Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>PLPBP Deficiency</h1>
+                
+                <p class="report-subtitle">Asta Literature Retrieval: Pathophysiology and clinical mechanisms of PLPBP Deficiency. Core disease mechanisms, molecular and cellular pathways...</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-asta">Asta</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0015005" target="_blank" rel="noopener noreferrer">MONDO:0015005</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: Asta Scientific Corpus Retrieval</span>
+                    
+                    
+                    <span class="meta-chip">19 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f7329650955bb21ea272b1af717bf581fb46c355 &#10;Resolve with: git log --find-object=f7329650955bb21ea272b1af717bf581fb46c355 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research_asta.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research_asta.md</a>
+                        <code>f7329650955b</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Asta Literature Retrieval: Pathophysiology and clinical mechanisms of PLPBP Deficiency. Core disease mechanisms, molecular and cellular pathways...</h1>
+<p>This report is retrieval-only and is generated directly from Asta results.</p>
+<ul>
+<li>Papers retrieved: 19</li>
+<li>Snippets retrieved: 19</li>
+</ul>
+<h2>Relevant Papers</h2>
+<h3>[1] Global and Targeted Metabolomics for Revealing Metabolomic Alteration in Niemann-Pick Disease Type C Model Cells</h3>
+<ul>
+<li>Authors: Masahiro Watanabe, M. Maekawa, Keitaro Miyoshi, Toshihiro Sato, Yu Sato et al.</li>
+<li>Year: 2024</li>
+<li>Venue: Metabolites</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/27c7aa8f74e2997a59b92b38aec1fb9ff9cbb608" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/27c7aa8f74e2997a59b92b38aec1fb9ff9cbb608</a></li>
+<li><a href="https://doi.org/10.3390/metabo14100515" target="_blank" rel="noopener noreferrer">DOI: 10.3390/metabo14100515</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/39452896/" target="_blank" rel="noopener noreferrer">PMID: 39452896</a></li>
+<li>PMCID: 11509386</li>
+<li>Citations: 3</li>
+<li>Summary: Several metabolite characteristics of Niemann-Pick disease type C that may fluctuate in a cellular model of the disease are identified using both global and targeted metabolomic analyses by liquid chromatography/tandem mass spectrometry.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.405)
+    &gt; Background: Niemann-Pick disease type C (NPC) is an inherited disorder characterized by a functional deficiency of cholesterol transport proteins. However, the molecular mechanisms and pathophysiology of the disease remain unknown. Methods: In this study, we identified several metabolite characteristics of NPC that may fluctuate in a cellular model of the disease, using both global and targeted metabolomic analyses by liquid chromatography/tandem mass spectrometry (LC-MS/MS). Three cell lines, HepG2 cells (wild-type[WT]) and two NPC model HepG2 cell lines in which NPC1 was genetically ablated (knockout [KO]1 and KO2), were used for metabolomic analysis. Data were subjected to enrichment analysis using the Kyoto Encyclopedia of Genes and Genomes (KEGG) pathways. Results: The enrichment analysis of global metabolomics revealed that 8 pathways in KO1 and 16 pathways in KO2 cells were notably altered. In targeted metabolomics for 15 metabolites, 4 metabolites in KO1 and 10 metabolites in KO2 exhibited statistically significant quantitative changes in KO1 or KO2 relative to WT. Most of the altered metabolites were related to creatinine synthesis and cysteine metabolism pathways. Conclusions: In the future, our objective will be to elucidate the relationship between these metabolic alterations and pathophysiology.</li>
+</ul>
+<h3>[2] New therapeutic targets in rare genetic skeletal diseases</h3>
+<ul>
+<li>Authors: M. D. Briggs, P. A. Bell, M. Wright, K. A. Pirog</li>
+<li>Year: 2015</li>
+<li>Venue: Expert Opinion on Orphan Drugs</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/1363107f71ae6d2d60abca471cddf3da5d13644b" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/1363107f71ae6d2d60abca471cddf3da5d13644b</a></li>
+<li><a href="https://doi.org/10.1517/21678707.2015.1083853" target="_blank" rel="noopener noreferrer">DOI: 10.1517/21678707.2015.1083853</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26635999/" target="_blank" rel="noopener noreferrer">PMID: 26635999</a></li>
+<li>PMCID: 4643203</li>
+<li>Citations: 40</li>
+<li>Influential citations: 1</li>
+<li>Summary: An overview of disease mechanisms that are shared amongst groups of different GSDs and potential therapeutic approaches that are under investigation are described to generate critical mass for the identification and validation of novel therapeutic targets and biomarkers.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.385)
+    &gt; However, emerging knowledge suggests that the primary genetic defect may be less important than the cells' response to the expression of the mutant gene product [107]. Moreover, the largely overlooked response of a cell (i.e. chondrocyte) to the abnormal extracellular environment is also important for disease progression as illustrated by several GSDs discussed in this review.
+    &gt; It is important that 'omics'-based approaches and technologies are systematically applied to the study of rare GSDs so that definitive reference profiles and disease signatures are generated for each phenotype. These can then be used in a Systems Biology approach to identify both common and dissimilar pathological signatures and disease mechanisms. This approach is entirely dependent upon relevant in vitro and in vivo models (and also novel 'disease-mechanism phenocopies' [107]) for testing new diagnostic and prognostic tools and for determining the molecular mechanisms that underpin the pathophysiology so that effective therapeutic treatments can be developed and validated. This approach will eventually lead to personalized treatments and care strategies centred on shared disease mechanisms with the use of relevant biomarkers to monitor the efficacy of treatment and disease progression.
+    &gt; It is vital that all relevant stakeholders are involved from the outset in defining the appropriate outcomes of any potential therapeutic regime. The perceptions of a successful therapy can differ widely between the clinical academic community and the relevant patient-support groups and it is vital that there is engagement on all these issues.
+    &gt; In summary, the identification of causative genes and mutations for GSDs over the last 20 years, coupled with the generation and in-depth analysis of a plethora of relevant cell and mouse models, has derived new knowledge on disease mechanisms and suggested potential therapeutic targets. The fast-evolving hypothesis that clinically disparate diseases can share common disease mechanisms is a powerful concept that will generate critical mass for the identification and validation of novel therapeutic targets and biomarkers.</li>
+</ul>
+<h3>[3] Epilepsy Phenotypes of Vitamin B6-Dependent Diseases: An Updated Systematic Review</h3>
+<ul>
+<li>Authors: M. Mastrangelo, Valentina Gasparri, K. Bernardi, Silvia Foglietta, G. Ramantani et al.</li>
+<li>Year: 2023</li>
+<li>Venue: Children</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/22ca0f67db55e571f2bccf90e5db503e42d5ea76" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/22ca0f67db55e571f2bccf90e5db503e42d5ea76</a></li>
+<li><a href="https://doi.org/10.3390/children10030553" target="_blank" rel="noopener noreferrer">DOI: 10.3390/children10030553</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/36980111/" target="_blank" rel="noopener noreferrer">PMID: 36980111</a></li>
+<li>PMCID: 10047402</li>
+<li>Citations: 30</li>
+<li>Influential citations: 1</li>
+<li>Summary: Despite the wide variability, the most frequent hallmarks of the epilepsy phenotype in patients with vitamin B6-dependent seizures include generalized or focal motor seizure semiology and a burst suppression/suppression burst pattern in EEG.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.383)
+    &gt; Vitamin B6 is involved in several neuronal processes and networks via its active form, i.e., pyridoxal-5 I -phosphate (PLP) [1]. PLP acts as a coenzyme in different biochemical cascades, including amino acids and neurotransmitter metabolism, folate, and 1-carbon metabolism, protein and polyamine synthesis, carbohydrate and lipid metabolism, mitochondrial functions, and erythropoiesis [2]. PLP depletion is the main pathophysiological mechanism for different inborn errors of metabolism, including ALDH7A1 deficiency, PNPO deficiency, PLP binding protein deficiency, hyperprolinemia type II, hypophosphatasia, and glycosylphosphatidylinositol (GPI) anchor synthesis defects (Table 1) [3]. The pathomechanisms behind PLP depletion include the accumulation of metabolites inactivating PLP (ALDH7A1 deficiency), the impairment of PLP synthesis and recycling (PNPO deficiency), defects in the intracellular transport of PLP (PLPBP deficiency), or impaired transport of PLP into the brain (hypophosphatasia and GPI anchor defects) [4].
+    &gt; These diseases share complex and overlapping presenting phenotypes, including epileptic seizures responding to pyridoxine (100 mg intravenously or 30 mg/kg/day orally) or PLP (50-85 mg/kg/day orally) [4]. In some cases, this therapeutic response can be incomplete or delayed for up to 3 weeks and does not include manifestations other than seizures (e.g., neurodevelopmental impairment and systemic symptoms) [4]. The severity of seizures and developmental impairment ranges from mild to severe, with a strong correlation between the earlier onset of symptoms and worse developmental outcomes [4].
+    &gt; The history of vitamin B6-dependent epilepsies covers about seven decades, from 1954 (the first patients reported by Hunt et al.) to the 2000s (the discovery of disease-causing genes for most of these disorders) [4].</li>
+</ul>
+<h3>[4] Danon Disease-Associated LAMP-2 Deficiency Drives Metabolic Signature Indicative of Mitochondrial Aging and Fibrosis in Cardiac Tissue and hiPSC-Derived Cardiomyocytes</h3>
+<ul>
+<li>Authors: G. del Favero, A. Bonifacio, T. Rowland, Shan-Shan Gao, Kunhua Song et al.</li>
+<li>Year: 2020</li>
+<li>Venue: Journal of Clinical Medicine</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/98c99997015d4b753548454628875ce01936b442" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/98c99997015d4b753548454628875ce01936b442</a></li>
+<li><a href="https://doi.org/10.3390/jcm9082457" target="_blank" rel="noopener noreferrer">DOI: 10.3390/jcm9082457</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32751926/" target="_blank" rel="noopener noreferrer">PMID: 32751926</a></li>
+<li>PMCID: 7465084</li>
+<li>Citations: 22</li>
+<li>Summary: Overall, shaping of both morphology and metabolism contributed to the loss of cardiac biomechanical competence that characterizes the clinical progression of Danon disease.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.380)
+    &gt; Because Danon disease is very rare, with &lt;100 clinical reports and &lt;200 families reported in the literature [12], there is poor availability of material for diagnosis and characterization [13]. Hence, research toward the creation of reliable models, such as animal models [14] or iPSC-CMs, enabling the study of this complex pathology even in a limited manner are essential and constantly evolving.
+    &gt; To determine the molecular and cellular mechanisms by which LAMP-2 deficiency results in metabolic changes, here we combined Raman spectroscopy, transcriptomics, and metabolomics approaches on cardiac tissue and cellular models derived from Danon patients. Analyses were performed on cardiac tissue biopsies from Danon patients, as well as from patient-derived hiPSC-CMs. Even with limited patient cardiac tissue, we were able to identify pathways that were similarly impacted in our cellular models, supportive of these pathways being significantly affected in Danon disease. LAMP-2 deficiency appeared to promote specific metabolic switch in cardiomyocytes, possibly adaptive, given that cardiomyocytes have a high metabolic need. The pathway analyses suggest that LAMP-2 deficiency favors glycolysis to oxidative phosphorylation (OXPHOS) and promotes alternative metabolic pathways, such as with the mobilization of tryptophan. This contributes to preserving high nicotinamide adenine dinucleotide (NAD + ) levels despite mitochondrial aging. Similarly, fibroblasts respond to LAMP-2 deficiency with a stress-associated phenotype pointing toward fibrosis progression. This was accompanied by impairment of biomechanical properties, which retraces the clinical phenotype of Danon disease.</li>
+</ul>
+<h3>[5] Clinical Profile and Outcomes of Patients with the Most Common Hereditary Kidney Diseases at a Tertiary Care Hospital</h3>
+<ul>
+<li>Authors: Syed Fazlul Islam, Md Kabir Hossain, S. M. Morshed, S. M. Remin Rafi, M. Karim et al.</li>
+<li>Year: 2026</li>
+<li>Venue: Journal of Paediatric Surgeons of Bangladesh</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/f3211200ad069a4120aca1c7247e90c30f97d50e" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/f3211200ad069a4120aca1c7247e90c30f97d50e</a></li>
+<li><a href="https://doi.org/10.3329/jpsb.v17i2.93503" target="_blank" rel="noopener noreferrer">DOI: 10.3329/jpsb.v17i2.93503</a></li>
+<li>Summary: This study highlights the diverse clinical spectrum of hereditary kidney diseases, particularly Autosomal Dominant Polycystic Kidney Disease and Alport syndrome and suggests early recognition, regular assessment of renal function, family screening, and multidisciplinary management are essential for delaying disease progresson and improving patient outcomes.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.375)
+    &gt; Autosomal Dominant Polycystic Kidney Disease affects approximately 1 in 400 to 1,000 live births and accounts for 5-10% of end-stage kidney disease worldwide, making it one of the leading inherited causes of renal failure [6]. The disease results from mutations in either the PKD1 or PKD2 genes, located on chromosomes 16p13.3 and 4q21, respectively, and follows an autosomal dominant pattern of inheritance with variable clinical expression [7]. Although considerable progress has been made in understanding the pathogenesis of Autosomal Dominant Polycystic Kidney Disease, the molecular mechanisms underlying disease progression remain incompletely understood. Polycystins, encoded by the PKD genes, are expressed in renal tubular epithelial cells as well as in the pancreatic and hepatic ducts. These proteins are localized to the primary cilium, where they regulate mechanosensory signaling, intracellular calcium homeostasis, cell proliferation, and tubular architecture. Mutations in polycystins disrupt these pathways, resulting in abnormal epithelial proliferation and progressive cyst formation [8].
+    &gt; The clinical course of autosomal dominant polycystic kidney disease is highly variable, even among affected members of the same family. Although patients are often asymptomatic during childhood, clinical manifestations usually appear in adulthood and include hypertension, hematuria, abdominal or flank pain, recurrent urinary tract infections, nephrolithiasis, and progressive deterioration of renal function [9]. Extra-renal manifestations such as hepatic cysts, intracranial aneurysms, cardiac valvular abnormalities, and colonic diverticulosis are also frequently encountered [10]. Hypertension is one of the earliest and most important clinical manifestations, primarily resulting from activation of the renin-angiotensin-aldosterone system, and is a major determinant of cardiovascular complications and progression of kidney disease [11]. Disease severity varies according to the underlying genotype, with PKD1 mutations generally associated with earlier onset and more rapid progression to kidney failure than PKD2 mutations [12]. Despite the considerable clinical burden of hereditary kidney diseases, information regarding their clinical characteristics, complications, and outcomes remains limited in Bangladesh.</li>
+</ul>
+<h3>[6] The Lamin Proteins in Nuclear Structure, Functions, and Laminopathies</h3>
+<ul>
+<li>Authors: Gan Zhao, Zi-Heng Chen, Cai-Feng Yang, Ming-Zheng Liu, Wei-Yong Wang et al.</li>
+<li>Year: 2026</li>
+<li>Venue: Cells</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/9db8088d893cc5c3de80d3afda68b52e1cf501fc" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/9db8088d893cc5c3de80d3afda68b52e1cf501fc</a></li>
+<li><a href="https://doi.org/10.3390/cells15121051" target="_blank" rel="noopener noreferrer">DOI: 10.3390/cells15121051</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/42346079/" target="_blank" rel="noopener noreferrer">PMID: 42346079</a></li>
+<li>PMCID: 13296569</li>
+<li>Citations: 1</li>
+<li>Summary: Collectively, studies of lamin protein function reveal how the nucleus maintains its structures and functions, while studies of laminopathies demonstrate how nuclear dysfunction drives systemic disease and points toward mechanism-based therapies.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.373)
+    &gt; Laminopathies represent a clinically diverse class of human diseases caused by mutations in genes encoding components of the nuclear lamina and associated nuclear envelope proteins. Here, we summarize the mutation sites, phenotypes, and underlying molecular mechanisms of laminopathies (Table 1). Although mutations in LMNA account for the majority of reported cases, disease-causing alterations in B-type lamins, particularly LMNB1, as well as mutations in other nuclear envelope proteins, also give rise to distinct laminopathy phenotypes [13,77]. The pathogenesis of laminopathies is explained through several interconnected mechanistic frameworks. The classical structural hypothesis attributes disease to compromised nuclear integrity and impaired mechanical signaling, leading to stress-induced cellular damage, particularly in striated muscle tissues [23]. In contrast, the "gene expression hypothesis" emphasizes that lamin mutations disrupt chromatin organization and intracellular signaling pathways, thereby altering transcriptional programs [12,119]. More recently, these perspectives have been integrated with models highlighting cellular senescence, stem cell exhaustion, and chronic inflammation as additional pathogenic contributors, especially in progeroid syndromes [112]. Current evidence suggests that these mechanisms are not mutually exclusive but operate within an interconnected and synergistic network that drives disease progression [120].
+    &gt; In laminopathies, mutations affect structural components present in nearly all nucleated cells. Nevertheless, laminopathies exhibit marked tissue-specific vulnerability, predominantly affecting striated muscle, adipose tissue, peripheral nerves, or, in some cases, causing systemic premature aging [12,15]. This tissue selectivity likely arises from the interaction between a specific lamin mutation and the distinct mechanical demands, transcriptional programs, and developmental context of individual tissues [15,119]. Consequently, although laminopathies share common molecular roots, their clinical manifestations are highly system-oriented.
+    &gt; For this reason, laminopathies are conventionally classified according to the primary tissue or organ system affected, despite substantial phenotypic overlap among categories [14]. This classification provides a clinically practical framework while acknowledging that shared pathogenic mechanisms underlie seemingly distinct disease entities.
+    &gt; Striated muscle laminopathies represent a major disease category.</li>
+</ul>
+<h3>[7] Cellular reprogramming and inherited peripheral neuropathies: perspectives and challenges</h3>
+<ul>
+<li>Authors: M. Saporta</li>
+<li>Year: 2015</li>
+<li>Venue: Neural Regeneration Research</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/8c3dabb1b4abf93506e2026564b8a329c0ec37c6" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/8c3dabb1b4abf93506e2026564b8a329c0ec37c6</a></li>
+<li><a href="https://doi.org/10.4103/1673-5374.158345" target="_blank" rel="noopener noreferrer">DOI: 10.4103/1673-5374.158345</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26199602/" target="_blank" rel="noopener noreferrer">PMID: 26199602</a></li>
+<li>PMCID: 4498347</li>
+<li>Citations: 4</li>
+<li>Summary: iPSC-based models of neuromuscular disorders, including amyotrophic lateral sclerosis (ALS), spinal muscular atrophy (SMA) and inherited peripheral neuropathies, have successfully reproduced pathophysiological findings from previous animal and cellular models and have also identified new disease mechanisms with potential therapeutical implications.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.371)
+    &gt; Inherited peripheral neuropathies (or Charcot-Marie-Tooth disease, CMT) are a phenotypically and genetically heterogeneous group of disorders, which are currently untreatable. They are the most common inherited neuromuscular disorder, affecting around 1 in every 2,500 people (over 120,000 people in the US). Based on clinical neurophysiological and histopathological features, inherited neuropathies can be divided into two major forms: demyelinating (type 1) and axonal (type 2) CMT (Saporta, 2014). From a biological standpoint, these two major forms of CMT are associated with mutations in different sets of genes, affecting Schwann cell development and myelination (type 1) or peripheral axon physiology (type 2), although some overlap does exist (Figure 1). To date, over 70 genes have been associated with a CMT phenotype, making CMT an attractive natural model to study peripheral nervous system biology. Despite significant advances made in our knowledge of disease mechanisms in CMT, findings from animal models have so far translated poorly in clinical trials, underscoring the need for innovative methods to investigate the pathophysiology of these human disorders. Induced pluripotent stem cells (iPSCs) offer an unlimited source of patient specific, disease-relevant cell lines that can be used as a platform for identification of disease mechanisms, discovery of molecular targets and development of phenotypic screens for drug discovery (Saporta et al., 2011). iPSC-based models of neuromuscular disorders, including amyotrophic lateral sclerosis (ALS), spinal muscular atrophy (SMA) and inherited peripheral neuropathies, have successfully reproduced pathophysiological findings from previous animal and cellular models and have also identified new disease mechanisms with potential therapeutical implications.</li>
+</ul>
+<h3>[8] Transcriptomic analysis identifies dysregulated pathways and therapeutic targets in PMM2-CDG.</h3>
+<ul>
+<li>Authors: Diana Gallego, Mercedes Serrano, J. Córdoba-Caballero, A. Gámez, P. Seoane et al.</li>
+<li>Year: 2024</li>
+<li>Venue: Biochimica et biophysica acta. Molecular basis of disease</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/44e382bb254b9af80c7134f4cd9873132d01685e" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/44e382bb254b9af80c7134f4cd9873132d01685e</a></li>
+<li><a href="https://doi.org/10.1016/j.bbadis.2024.167163" target="_blank" rel="noopener noreferrer">DOI: 10.1016/j.bbadis.2024.167163</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38599261/" target="_blank" rel="noopener noreferrer">PMID: 38599261</a></li>
+<li>Citations: 14</li>
+<li>Summary: Results presented from transcriptomic data might serve as a platform for identifying therapeutic targets for PMM2-CDG, as well as for monitoring the effectiveness of therapeutic strategies, including pharmacological candidates and mannose-1-P, drug repurposing.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.371)
+    &gt; PMM2-CDG (MIM # 212065), the most common congenital disorder of glycosylation, is caused by the deficiency of phosphomannomutase 2 (PMM2). It is a multisystemic disease of variable severity that particularly affects the nervous system; however, its molecular pathophysiology remains poorly understood. Currently, there is no effective treatment. We performed an RNA-seq based transcriptomic study using patient-derived fibroblasts to gain insight into the mechanisms underlying the clinical symptomatology and to identify druggable targets. Systems biology methods were used to identify cellular pathways potentially affected by PMM2 deficiency, including Senescence, Bone regulation, Cell adhesion and Extracellular Matrix (ECM) and Response to cytokines. Functional validation assays using patients' fibroblasts revealed defects related to cell proliferation, cell cycle, the composition of the ECM and cell migration, and showed a potential role of the inflammatory response in the pathophysiology of the disease. Furthermore, treatment with a previously described pharmacological chaperone reverted the differential expression of some of the dysregulated genes. The results presented from transcriptomic data might serve as a platform for identifying therapeutic targets for PMM2-CDG, as well as for monitoring the effectiveness of therapeutic strategies, including pharmacological candidates and mannose-1-P, drug repurposing.</li>
+</ul>
+<h3>[9] Cardiomyocytes Derived from Induced Pluripotent Stem Cells as a Disease Model for Propionic Acidemia</h3>
+<ul>
+<li>Authors: Esmeralda Alonso-Barroso, B. Pérez, L. Desviat, E. Richard</li>
+<li>Year: 2021</li>
+<li>Venue: International Journal of Molecular Sciences</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/da649a0f04477c53b448c5ac5f873f8762235290" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/da649a0f04477c53b448c5ac5f873f8762235290</a></li>
+<li><a href="https://doi.org/10.3390/ijms22031161" target="_blank" rel="noopener noreferrer">DOI: 10.3390/ijms22031161</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33503868/" target="_blank" rel="noopener noreferrer">PMID: 33503868</a></li>
+<li>PMCID: 7865492</li>
+<li>Citations: 19</li>
+<li>Influential citations: 1</li>
+<li>Summary: The novel results show that PA iPSC-cardiomyocytes represent a promising model for investigating the pathological mechanisms underlying PA cardiomyopathies, also serving as an ex vivo platform for therapeutic evaluation.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.366)
+    &gt; The study of the mechanisms involved in disease physiopathology has been mainly performed using the hypomorphic PA mouse model that mimics the biochemical and clinical phenotype [5]. Using this model, bioenergetic failure, oxidative damage and deregulation of miRNAs induced by accumulating propionyl-CoA have been described as potential mechanisms contributing to PA physiopathology [6][7][8]. The limitations of animal models for the study of cardiac energy metabolism [9] and of the commonly available cellular human models such as fibroblasts, underline the importance of generating new relevant cell models to provide deeper insight into the underlying mechanisms of disease. The use of in vitro models with human cellular context is highly recommended and, in this sense, induced pluripotent stem cells (iPSCs) have certain advantages since they provide the genetic background of the patient and represent an unlimited source of biological material for the study of pathophysiology and treatment effectiveness [10]. We have previously generated an iPSC line from a PA patient with defects in the PCCA gene that showed full pluripotency, differentiation capacity and genetic stability [11].
+    &gt; In the present study, we aimed to establish a platform that served as a disease model to study the cellular and molecular alterations operating in cardiac tissue affected by PA disease. We described the characterization of cardiomyocytes derived from the PCCA iPSC line (PCCA iPSC-CMs) and the analysis of specific pathways potentially involved in cardiac PA physiopathology.</li>
+</ul>
+<h3>[10] Succinate supplementation ameliorates musculoskeletal defects caused by PLOD3 mutations in a BCARD syndrome model</h3>
+<ul>
+<li>Authors: Dharmendra Choudhary, Gokhan Unlu, T. Nagai, David B. Melville, Alexandra Scalici et al.</li>
+<li>Year: 2026</li>
+<li>Venue: Genome Medicine</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/e0321f67158be70339327a21b5d9f2a943e1691b" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/e0321f67158be70339327a21b5d9f2a943e1691b</a></li>
+<li><a href="https://doi.org/10.1186/s13073-026-01608-y" target="_blank" rel="noopener noreferrer">DOI: 10.1186/s13073-026-01608-y</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41827019/" target="_blank" rel="noopener noreferrer">PMID: 41827019</a></li>
+<li>PMCID: 12994257</li>
+<li>Citations: 1</li>
+<li>Summary: The data indicate that the interaction between ECM synthesis and mitochondrial energy metabolism offers an entry point for novel therapies to prevent complex connective tissue decline in BCARD and, potentially, in other rare and common musculoskeletal disorders and conditions such as aging, cancer, or injury.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.366)
+    &gt; We have investigated clinically relevant BCARD phenotypes associated with recessive deleterious mutations in the PLOD3 gene in zebrafish models of PLOD3 deficiency, matched with molecular and cellular studies in patient's skin fibroblasts. We show that the core clinical features in BCARD syndrome are recapitulated in the zebrafish loss-of-function models. These include cartilage, bone, ocular, ear, and vascular defects [2]. Besides the core features, contributing to the BCARD syndrome acronym, individuals carrying ten distinct PLOD3 variants also presented with developmental dysmorphology within craniofacial structures, axial skeleton and limb defects, muscle dysfunction, skin abnormalities, and brain anomalies and dysfunction [3][4][5][6][7][8]. In many subjects, sudden arterial rupture and intracranial hemorrhage are the catastrophic outcomes of the disease. These additional phenotypes also manifested in zebrafish plod3 mutants, indicating that zebrafish offer a robust in vivo system to examine the wide spectrum of cellular and molecular mechanisms underlying PLOD3 deficiency symptoms. This is particularly important because prior studies in animal models focused on neuronal and eye (See figure on previous page.) Fig. 6 Succinate supplementation rescues musculoskeletal phenotypes. A Search strategy for PLOD3 targeting drugs and affected pathways. B RNA-seq results (RPKM values) of TCA cycle genes suclg1, suclg2, and sdhc; n = 3 biological replicates. C STRING (Search Tool for the Retrieval of Interacting Genes/ Proteins) web tool analyses of protein-protein interactions among the 26 Succinic Acid (SA) targets. Identified novel interactions between PLOD3 and TCA cycle genes are indicated by blue lines. Orange lines mark previously reported interactions. D Treatment with succinate increases expression of TCA cycle suclg1, suclg2, and sdhc genes in mgt −/− . Relative expression levels in a qPCR assay normalized to β-actin transcript levels with WT expression set as 1 (dashed line).</li>
+</ul>
+<h3>[11] Molecular Mechanisms and Risk Factors for the Pathogenesis of Hydrocephalus</h3>
+<ul>
+<li>Authors: Jingwen Li, Xinjie Zhang, Jian-Feng Guo, Chen Yu, Jun Yang</li>
+<li>Year: 2022</li>
+<li>Venue: Frontiers in Genetics</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/d53bdf5f73f54a6d5a8be8777d23c465a13e9185" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/d53bdf5f73f54a6d5a8be8777d23c465a13e9185</a></li>
+<li><a href="https://doi.org/10.3389/fgene.2021.777926" target="_blank" rel="noopener noreferrer">DOI: 10.3389/fgene.2021.777926</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/35047005/" target="_blank" rel="noopener noreferrer">PMID: 35047005</a></li>
+<li>PMCID: 8762052</li>
+<li>Citations: 18</li>
+<li>Influential citations: 2</li>
+<li>Summary: Some possible fundamental molecular mechanisms and facilitating risk factors involved in the pathogenesis of hydrocephalus are elicited, and knowledge could be used to improve patient care in different ways, such as early precise diagnosis and effective therapeutic regimens.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.365)
+    &gt; Cwh43 modifies the glycosylphosphatidylinositol-anchored proteins on the ependymal cells, and the mutant Cwh43 is related to iNPH in both humans and mice. The clinical features manifest as late-onset communicating hydrocephalus with symptoms of gait and balance dysfunction (Yang et al., 2021a).
+    &gt; The clinical manifestation and progression, as well as experimental investigations, indicate that hydrocephalus is a complex disease with polygenic involvement, rather than a simple CSF accumulation disorder. Although the current studies have revealed that some genetic mutations are involved in the pathogenesis of hydrocephalus, how these mutations are associated with the disorder of CSF circulation and their pathogenic roles in the pathological progression of hydrocephalus still remain largely unknown. Previous studies indicated that a lot of genetic mutations were relevant to the disorders of ciliary and/or centrosome, resulting in the dysfunction of the glymphatic system. However, how these mutations and their interactions contribute to the pathogenesis of hydrocephalus needs to be further elucidated. Moreover, there is still a lack of basic knowledge on the mechanisms underlying the cognitive functional impairment of hydrocephalus. Therefore, further extensive studies should be conducted to explore the underlying molecular mechanisms of identified and/or unidentified genes in the pathophysiology of hydrocephalus. Based on our knowledge, we propose that the genetic mutations relevant to ciliary and centrosomal proteins and the interaction between glymphatic system and ciliary/ centrosomal structures/functions may be a critical molecular mechanism in the pathophysiology of hydrocephalus. In addition, based on these fundamental molecular mechanisms, it is noteworthy that environmental and other acquired risks or etiological factors are also involved in the facilitation of ventricular enlargement.</li>
+</ul>
+<h3>[12] Baseline urinary metabolites predict albuminuria response to spironolactone in type 2 diabetes.</h3>
+<ul>
+<li>Authors: S. Mulder, P. Perco, C. Oxlund, Uzma F Mehdi, T. Hankemeier et al.</li>
+<li>Year: 2020</li>
+<li>Venue: Translational research : the journal of laboratory and clinical medicine</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/e5f7ffaa67fba1fe09d82c2d3787ad398d175bb6" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/e5f7ffaa67fba1fe09d82c2d3787ad398d175bb6</a></li>
+<li><a href="https://doi.org/10.1016/j.trsl.2020.04.010" target="_blank" rel="noopener noreferrer">DOI: 10.1016/j.trsl.2020.04.010</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32438071/" target="_blank" rel="noopener noreferrer">PMID: 32438071</a></li>
+<li>Citations: 10</li>
+<li>Summary: The data suggest that urinary metabolites may be used as a tool to tailor optimal therapy and move in the direction of personalized medicine.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.364)
+    &gt; In-silico modeling of spironolactone mechanism of action and DKD pathophysiology. Network-based molecular models reflecting spironolactone mechanism of action as well as DKD pathophysiology were generated following previously described and successfully applied computational workflows. 8,9 n brief, molecular features associated with spironolactone were consolidated from 3 data sources, namely scientific literature, DrugBank, and a transcriptomics data set from DrugMatrix. Molecular features were defined as genes, transcripts, or proteins. Scientific articles annotated with spironolactone as major MeSH term were retrieved and genes were extracted using NCBI's gene2pubmed file. This set of genes was complemented by drug targets listed in DrugBank for spironolactone. 10 We further extracted transcripts being differentially expressed between spironolactone-treated and untreated kidney samples of animal models as stored in DrugMatrix. 11 The unique set of spironolactone associated molecular features was mapped onto a hybrid interaction network including protein-protein interaction data from IntAct, BioGrid, and Reactome together with computationally inferred relations. 12 Interactions between members of the spironolactone feature set were extracted and the MCODE algorithm was used to identify clusters of highly interconnected proteins. 13  previously published DKD molecular model was used which was constructed following the same logic using data from scientific literature as well as from Omics datasets in the context of DKD. 7 Proteomics data of the published CKD273 proteomics classifier were used in order to identify DKD processes linked with DKD progression by mapping the set of proteins in the CKD273 classifier onto the DKD molecular network thus defining progression-associated process units. 14 twork interference analysis and identification of candidate metabolites. Network alignment method was used to identify DKD molecular processes linked to DKD prognosis affected by spironolactone treatment on the molecular level. Metabolites linked to proteins in affected DKD molecular processes were identified via enzyme-metabolite associations as stored in the Human Metabolome Database and forwarded to measurements in clinical samples. 15</li>
+</ul>
+<h3>[13] Cytoskeletal Protein 4.1R in Health and Diseases</h3>
+<ul>
+<li>Authors: Jiao-Jiao Liu, C. Ding, Xin Liu, Q. Kang</li>
+<li>Year: 2024</li>
+<li>Venue: Biomolecules</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/078ea0224b1c3b707d351a79b38cfea1ade0a43a" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/078ea0224b1c3b707d351a79b38cfea1ade0a43a</a></li>
+<li><a href="https://doi.org/10.3390/biom14020214" target="_blank" rel="noopener noreferrer">DOI: 10.3390/biom14020214</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/38397451/" target="_blank" rel="noopener noreferrer">PMID: 38397451</a></li>
+<li>PMCID: 10887211</li>
+<li>Citations: 6</li>
+<li>Influential citations: 1</li>
+<li>Summary: An updated overview of the gene and protein structure of 4.1R is provided, as well as its cellular functions in both physiological and pathological contexts.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.363)
+    &gt; In this review, we summarize the structural characteristics, physiological functions, and pathological functions of 4.1R. As a structural protein, the function of 4.1R in mature erythrocytes has been extensively studied. In recent years, many studies have been carried out on its function in nucleated cells. 4.1R is involved in many cellular processes by regulating the cytoskeleton and signaling pathways. Any interference with the expression of 4.1R leads to disruptions in normal cell function and pathological outcomes.
+    &gt; Genetic mutations associated with human disease have been reported to occur in different domains of the protein 4.1R, but many details remain unknown. In order to better understand the relationship between the structure and function of 4.1R and human diseases, the regulatory functions and mechanisms of different 4.1R domains in human diseases need to be further studied. Multiple isoforms of protein 4.1R are expressed in various tissues through complex pre-mRNA splicing events. During cell differentiation, the expression and localization of the EPB41 gene are regulated. Therefore, the regulatory mechanisms of different subtypes or multiple subtypes of 4.1R in different diseases still need to be further studied. Elucidation of the regulatory functions and molecular mechanisms of 4.1R in diseases will provide a foundation for clinical diagnosis and personalized gene therapy for patients with EPB41 mutations or expression deficiencies.</li>
+</ul>
+<h3>[14] Molecular insights into the premature aging disease progeria</h3>
+<ul>
+<li>Authors: Sandra Vidak, R. Foisner</li>
+<li>Year: 2016</li>
+<li>Venue: Histochemistry and Cell Biology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/60fb3b46bb7e42d5d08cc3b7cbc783b118300c31" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/60fb3b46bb7e42d5d08cc3b7cbc783b118300c31</a></li>
+<li><a href="https://doi.org/10.1007/s00418-016-1411-1" target="_blank" rel="noopener noreferrer">DOI: 10.1007/s00418-016-1411-1</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/26847180/" target="_blank" rel="noopener noreferrer">PMID: 26847180</a></li>
+<li>PMCID: 4796323</li>
+<li>Citations: 108</li>
+<li>Influential citations: 4</li>
+<li>Summary: Changes in mechanosignaling, altered chromatin organization and impaired genome stability, and changes in signaling pathways, leading to impaired regulation of adult stem cells, defective extracellular matrix production and premature cell senescence are discussed.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.363)
+    &gt; The number of molecular biological studies aiming at the identification of lamin-mediated molecular disease mechanisms involved in HGPS increased tremendously following the surprising discovery that LMNA is causally linked to the premature aging disease HGPS in 2003. Despite numerous cellular pathways that were identified to be affected by the expression of the mutant lamin A protein (Fig. 2), the mechanistic details behind these effects are still unclear in most cases. Knowledge based on what was already known on lamin biology before the protein was linked to HGPS and findings on novel roles of lamins in diverse pathways in recent years allowed the launch of translational studies and the efficient search for drug targets and therapeutic approaches within a short time period. The results of the first clinical trials taught us that some improvements of the disease phenotypes can be achieved by FTI treatment, but they also made clear that we need a much better understanding of the underlying disease mechanisms to be able to tackle specific aspects of the disease in a more focused approach. It will also be important to elucidate which of the numerous pathways found to be impaired in HGPS are most relevant for and causally involved in the pathologies, and which ones are just bystanders.</li>
+</ul>
+<h3>[15] Recent advances in modelling of cerebellar ataxia using induced pluripotent stem cells</h3>
+<ul>
+<li>Authors: M. M. Wong, L. Watson, Esther B. E. Becker</li>
+<li>Year: 2017</li>
+<li>Venue: Journal of neurology &amp; neuromedicine</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/49e96be489c11f06a20c2ff2647320709a3328c8" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/49e96be489c11f06a20c2ff2647320709a3328c8</a></li>
+<li><a href="https://doi.org/10.29245/2572.942x/2017/7.1134" target="_blank" rel="noopener noreferrer">DOI: 10.29245/2572.942x/2017/7.1134</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/28825058/" target="_blank" rel="noopener noreferrer">PMID: 28825058</a></li>
+<li>PMCID: 5558869</li>
+<li>Citations: 10</li>
+<li>Summary: This review focuses on recent breakthroughs in generating human iPSC-derived Purkinje cells and highlights the future challenges that will need to be addressed in order to fully exploit these models for the modelling of the molecular mechanisms underlying cerebellar ataxias and the development of effective therapeutics.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.363)
+    &gt; dominant polyglutamine spinocerebellar ataxias (SCAs) are the most studied forms of ataxias. Despite significant clinical and genetic heterogeneity, emerging evidence points to the existence of common pathogenic mechanisms that may be shared by several genetically distinct forms of cerebellar ataxias (reviewed in5-8). However, it is still unclear how the proposed pathological pathways ultimately result in cerebellar dysfunction and degeneration, predominantly affecting Purkinje cells.
+    &gt; Understanding disease mechanisms is key to treating neurodegenerative disorders. The heterogeneous nature of the cerebellar ataxias combined with the unavailability of human brain tissue and the lack of reliable disease models have, however, hampered our understanding of the molecular disease mechanisms underlying cerebellar ataxias and thus, the development of effective therapies. Although mouse models of several cerebellar ataxias, including FRDA and SCAs, have provided valuable insights into the pathophysiology of these disorders (reviewed in9), many questions remain about the observed species differences in disease phenotypes and the effectiveness of potential drugs in clinical trials.
+    &gt; To help translate research from animal models into novel treatments for ataxia patients, it is essential to validate findings in the relevant affected human cell types, particularly in cerebellar Purkinje cells. The current obstacles might be overcome by exploiting recently developed human induced pluripotent stem cell (iPSC) technology and neuronal differentiation protocols.</li>
+</ul>
+<h3>[16] Psychobiotics at the Frontiers of Neurodegenerative and Neuropsychiatric Research</h3>
+<ul>
+<li>Authors: Guillermo Roberto Jiménez-Pareyón, J. M. Cristóbal-Luna, Y. García-Martínez, Cynthia Garfias-Noguez, Morayma Ramírez-Damián et al.</li>
+<li>Year: 2025</li>
+<li>Venue: Microorganisms</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/6c92b8101905064ff4e4e8585f4fa86ebfac0826" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/6c92b8101905064ff4e4e8585f4fa86ebfac0826</a></li>
+<li><a href="https://doi.org/10.3390/microorganisms13122718" target="_blank" rel="noopener noreferrer">DOI: 10.3390/microorganisms13122718</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/41471921/" target="_blank" rel="noopener noreferrer">PMID: 41471921</a></li>
+<li>PMCID: 12735313</li>
+<li>Citations: 5</li>
+<li>Summary: A review of current evidence on the GBA’s involvement in conditions such as Alzheimer’s disease, Parkinson’s disease, depression, and anxiety examines how psychobiotics may modulate neuroinflammation, oxidative stress, and neurotransmitter signaling, thereby contributing to cognitive and emotional regulation.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.361)
+    &gt; A defining feature of NDs is the progressive loss of brain cells over time, driven by diverse molecular and cellular mechanisms that impair neural function [28]. Understanding these pathophysiological factors is fundamental for analyzing the decline in patient health [29]. Prioritizing the most studied and relevant mechanisms, especially those pertinent to psychobiotics modulation, can aid in designing more effective interventions. Key mechanisms include:
+    &gt; -Protein aggregation: In many NDs, the abnormal accumulation of misfolded proteins disrupts cellular function and contributes to neuronal toxicity. These aggregates interfere with physiological processes and exacerbate neuronal dysfunction [30]. -Cellular dysfunction: NDs often involve the selective loss or aberrant proliferation of specific neural cell types. Both neurons and glial cells can experience alterations that compromise their function, including the loss of synaptic communication, dysregulation of intracellular transport mechanisms, and the inability to maintain ionic and energetic homeostasis, all of which accelerate degeneration [31].
+    &gt; -Biochemical imbalances: Dysregulated biochemical processes can induce cellular dysfunction and, eventually, neuronal death and the accumulation of neurotoxic metabolites that contribute to neural injury [32]. -Genetic factors: Mutations in key genes (e.g., APP, PSEN1 and PSEN2, PARK7 (DJ-1), PINK1, and PRKN) increase susceptibility to NDs by interfering with critical pathways related to protein processing, mitochondrial integrity and autophagy [33,34]. While neuroinflammation may not initiate these disorders, it significantly amplifies disease progression. Chronic activation of microglia and sustained inflammatory signaling can exacerbate neuronal damage and accelerate disease development. This inflammatory response arises from primary pathological events such as protein aggregation, cellular dysfunction, and biochemical alterations, making it an important target for therapeutic strategies.</li>
+</ul>
+<h3>[17] Nasopharyngeal Carcinoma Signaling Pathway: An Update on Molecular Biomarkers</h3>
+<ul>
+<li>Authors: W. Tulalamba, T. Janvilisri</li>
+<li>Year: 2012</li>
+<li>Venue: International Journal of Cell Biology</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/307cb9186444d9dad6e2e3b53763be0de76de186" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/307cb9186444d9dad6e2e3b53763be0de76de186</a></li>
+<li><a href="https://doi.org/10.1155/2012/594681" target="_blank" rel="noopener noreferrer">DOI: 10.1155/2012/594681</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/22500174/" target="_blank" rel="noopener noreferrer">PMID: 22500174</a></li>
+<li>PMCID: 3303613</li>
+<li>Citations: 98</li>
+<li>Influential citations: 5</li>
+<li>Summary: The molecular signaling pathways in the NPC are discussed for the holistic view of NPC development and progression and the important insights toward NPC pathogenesis may offer strategies for identification of novel biomarkers for diagnosis and prognosis.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.360)
+    &gt; In the pregenomic eras, highly integrated and complex circuitry of molecular signaling in NPC pathogenesis was only partially understood. Over the past decade, the knowledge of the molecular mechanisms in NPC carcinogenesis has been rapidly accumulated. Dysregulation and abnormal protein expression of molecules in certain signaling pathways involved in cellular functions including proliferation, adhesion, survival, and apoptosis has been demonstrated in the NPC cells. Detailed information on the complex network in signaling pathway leading to a coordinated pattern of gene expression and regulation in NPC will undoubtedly provide important clues to develop novel prognostic and therapeutic strategies for this cancer. Refining molecular markers into clinically relevant assays may assist in the detection of NPC in asymptomatic patients, as well as stage classification and monitoring disease progression and treatments. Furthermore, selective regulation of particular proteins targeting cancer cell proliferation, invasion, and apoptosis is a hopeful prospect for future anticancer therapy that slow disease progression and improve survival.</li>
+</ul>
+<h3>[18] The ties that bind: functional clusters in limb-girdle muscular dystrophy</h3>
+<ul>
+<li>Authors: E. Barton, Christina A. Pacak, Whitney L. Stoppel, Peter B. Kang</li>
+<li>Year: 2020</li>
+<li>Venue: Skeletal Muscle</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/3493c658bb8716d789a05ddf292162832e064e47" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/3493c658bb8716d789a05ddf292162832e064e47</a></li>
+<li><a href="https://doi.org/10.1186/s13395-020-00240-7" target="_blank" rel="noopener noreferrer">DOI: 10.1186/s13395-020-00240-7</a></li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/32727611/" target="_blank" rel="noopener noreferrer">PMID: 32727611</a></li>
+<li>PMCID: 7389686</li>
+<li>Citations: 25</li>
+<li>Summary: A deeper understanding of these disease pathways could yield a new generation of precision therapies that would each be expected to treat a broader range of LGMD patients than a single subtype, thus expanding the scope of the molecular medicines that may be developed for this complex array of muscular dystrophies.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.360)
+    &gt; Pyridine nucleotide-disulfide reductase [55] Many of the protein functions listed require further confirmation or are disputed these methodologies. Those patients with moderate disease phenotypes regardless of the underlying causative gene mutation would likely fall into a category where there may be interest in testing a pharmacological treatment (that could be halted) but reduced interest in a more permanent experimental strategy. For all of the above-mentioned reasons, the identification of unifying therapeutic targets applicable to multiple subtypes of
+    &gt; LGMDs is highly desirable.
+    &gt; To identify such targets, we should first consider the question: What binds all of these LGMDs together? The two core phenotypic features are progressive proximal muscle weakness, along with characteristic signs of muscle fiber destruction on biopsy, referred to as "dystrophic" features. Nuances in clinical presentation have helped to distinguish some of the LGMDs, such as the frequent occurrence of difficulty walking on tiptoes in LGMD R2 (LGMD2B), caused by dysferlin deficiency. However, heterogeneity associated with variable ages of onset and ranges of severity makes it generally difficult to distinguish and diagnose LGMD subtypes based on clinical presentation alone. A change in perspective is in order to aid in understanding disease pathways responsible for clinical features even when the genetic mutation is unknown. Further, given the large number of genespecific LGMD subtypes, it could very well be that several major disease mechanisms may be shared across the family of diseases. Yet despite careful studies that have collectively determined the cellular localization of most proteins associated with LGMD (Fig. 1), there is limited knowledge of potentially unifying molecular disease mechanisms. We assert that the identification of functional clusters of these proteins, grouped by such common mechanisms, will streamline our understanding of the disease processes and identify therapeutic targets relevant to individuals in multiple disease subgroups, including individuals whose pathogenic mutations have not been found. By extension, this approach may serve as a tool to not only find common mechanisms, but may also help to distinguish LGMD subtypes that do not share similar functional patterns, and afford further refinement of potential treatments.</li>
+</ul>
+<h3>[19] F0F1 ATP Synthase: A Fascinating Challenge for Proteomics</h3>
+<ul>
+<li>Authors: F. Dabbeni-sala, A. Rai, G. Lippe</li>
+<li>Year: 2012</li>
+<li>Venue: Unknown venue</li>
+<li>URL: <a href="https://www.semanticscholar.org/paper/1552961080b5c0cc551fac0da8a3e63be58104e8" target="_blank" rel="noopener noreferrer">https://www.semanticscholar.org/paper/1552961080b5c0cc551fac0da8a3e63be58104e8</a></li>
+<li><a href="https://doi.org/10.5772/31082" target="_blank" rel="noopener noreferrer">DOI: 10.5772/31082</a></li>
+<li>Citations: 5</li>
+<li>Summary: This book covers four important and diverse areas of current proteomic research: Proteomic Discovery of Disease Biomarkers, proteomic Analysis of Protein Functions, Proteome Approaches to Dissecting Disease Processes, and Organelles and Secretome Proteomics.</li>
+<li>Evidence snippets:</li>
+<li>Snippet 1 (score: 0.358)
+    &gt; In both types of ATP synthase disorders, hyperpolarization due to decreased ATP synthesis promotes ROS production by the respiratory chain, an event that can contribute to the clinical phenotypes as suggested by the beneficial effect of antioxidants observed in NARP cells (Mattiazzi et al,. 2004). This finding is quite important, considering that, in spite of the considerable progress in understanding of the molecular mechanisms of ATP synthase disorders, the available therapeutic approaches are still extremely limited (Kucharczyk et al., 2009). It has been proposed that other secondary effects possibly involved in the pathogenic pathways of ATP synthase deficiency could be changes in mitochondrial cristae morphology, which is mediated by ATP synthase oligomerization (Couoh-Cardel et al., 2010;Paumard et al., 2002), and/or a concomitant impairment of an ectopic function of ATP synthase localized on cell surface (see paragraph 4) (Kucharczyk et al., 2009). Microarray analyses have been performed in an attempt to gain a more global view of the cellular consequences of ATP synthase deficiency. In fibroblast cell lines from 13 genetically heterogeneous patients, 1632 human genes involved in mitochondrial biology, cell cycle regulation, signal transduction and apoptosis have been analysed. Surprisingly, only minor changes in expression of ATP synthase related genes were shown. Moreover, the cellular gene expression phenotypes were different depending on the site (mtDNA vs nuclear DNA) and the severity (ATP synthase content) of the underlying defect, indicating the need for further investigation of these pathways in other ATP synthase disorders (Cížková et al,. 2008). As far as our knowledge is concerned, the proteomic profiles of ATP synthase-related diseases have not yet been reported.
+    &gt; Other intriguing examples of ATP synthase-related diseases are Batten disease in man or ceroid lipofuscinosis in sheep. Both are storage diseases with abnormal accumulation of subunit c in lysosomes occurring in the brain and liver, respectively. MS and protein sequencing have shown that the stored protein is structurally identical to the normal mitochondrial subunit c (Chen et al,. 2004).</li>
+</ul>
+<h2>Notes</h2>
+<ul>
+<li>This provider combines <code>search_papers_by_relevance</code> with <code>snippet_search</code>.</li>
+<li>No synthesis or second-stage model call is performed.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>36</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>34</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>34</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>13</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Unresolved references</h3>
+<p>These identifiers did not resolve to a record and may be fabricated. A lookup that failed for transport reasons is indistinguishable from one that failed because the record does not exist, so spot-check before acting on them:</p>
+<ul>
+<li><code>PMID:32438071</code> (1 mention) - Identifier did not resolve to a record</li>
+<li><code>DOI:10.5772/31082</code> (1 mention) - Identifier did not resolve to a record</li>
+</ul>
+<h2>Term Validation</h2>
+<p>No ontology term identifiers were found in this report.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Pleuropulmonary_Blastoma-manual.html">← Pleuropulmonary Blastoma (Manual)</a>
+                
+                
+                <a href="PLPBP_Deficiency-claude_code.html">PLPBP Deficiency (Claude Code) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/PLPBP_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/PLPBP_Deficiency-deep-research-asta.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-asta" aria-current="page">Asta</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                    <li>
+                        
+                        <a href="PLPBP_Deficiency-claude_code.html"><span class="provider-pill provider-claude-code">Claude Code</span></a>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
