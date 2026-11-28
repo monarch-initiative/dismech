@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TPP2 Deficiency · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>TPP2 Deficiency</span>
+            </div>
+
+            <header class="report-header">
+                <h1>TPP2 Deficiency</h1>
+                
+                <p class="report-subtitle">TPP2 Deficiency (Immunodeficiency 78 with autoimmunity and developmental delay, IMD78): research report</p>
+                
+                
+                <div class="report-date">2026-11-16</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0030971" target="_blank" rel="noopener noreferrer">MONDO:0030971</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">20 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <p>Still researching TPP2 deficiency. PubMed's web pages are blocked, so I'm pulling the abstracts through NCBI E-utilities instead.</p>
+<p>Checking which of the repository's cached references are actually about TPP2, which is a different gene from TPP1/CLN2.</p>
+<h1>TPP2 Deficiency (Immunodeficiency 78 with autoimmunity and developmental delay, IMD78): research report</h1>
+<p><strong>Identifiers to curate against:</strong> <a href="http://purl.obolibrary.org/obo/MONDO_0030971" target="_blank" rel="noopener noreferrer">MONDO:0030971</a> · OMIM #619220 · causal gene <strong>TPP2</strong> (tripeptidyl peptidase 2, chromosome 13q33.1) · autosomal recessive.</p>
+<h2>How to read this report</h2>
+<ul>
+<li><strong>Abstracts were not quoted in full.</strong> PubMed's web pages returned a cookie wall, and the sandbox refused direct E-utilities calls. Europe PMC confirmed the titles and PMIDs, but only short excerpts could be copied. Every quote below came from a search snippet or a short Europe PMC excerpt. <strong>Treat each one as a lead.</strong> Run <code>just fetch-reference PMID:&lt;id&gt;</code> and check every snippet against the cached abstract before it goes into the YAML.</li>
+<li><strong>No ontology CURIEs are given.</strong> Phenotype, GO, CL, UBERON and NCIT terms are suggested by label only, because repository rules forbid writing identifiers from memory. Look each one up with <code>runoak</code> or the term caches when binding it. HGNC and OMIM gene IDs are left for the same lookup.</li>
+<li><strong>Do not confuse TPP2 with TPP1.</strong> Most <code>references_cache/</code> hits for "tripeptidyl peptidase" are about TPP1 (CLN2 neuronal ceroid lipofuscinosis, treated with cerliponase alfa). That is a different gene, enzyme and disease. TPP2 is a giant cytosolic serine exopeptidase, not a lysosomal enzyme.</li>
+</ul>
+<hr />
+<h2>1. Disease information</h2>
+<p><strong>Overview.</strong> TPP2 deficiency is a very rare autosomal recessive inborn error of immunity caused by biallelic loss-of-function variants in <strong>TPP2</strong>. Its core features are:
+- combined immunodeficiency with recurrent viral and respiratory infections;
+- early-onset autoimmune cytopenias, often Evans syndrome (autoimmune haemolytic anaemia plus immune thrombocytopenia);
+- premature immunosenescence of T and B cells;
+- in many patients, developmental delay or intellectual disability.</p>
+<p>A milder adult-onset form, caused by missense variants, presents as chronic sterile brain inflammation that mimics multiple sclerosis.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Value</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0030971" target="_blank" rel="noopener noreferrer">MONDO:0030971</a></td>
+<td>user-supplied</td>
+</tr>
+<tr>
+<td>OMIM</td>
+<td>#619220, "Immunodeficiency 78 with autoimmunity and developmental delay" (IMD78)</td>
+<td>OMIM, via <a href="https://https.ncbi.nlm.nih.gov/medgen/1785772">MedGen</a> and <a href="https://panelapp.genomicsengland.co.uk/panels/398/gene/TPP2">PanelApp</a></td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>D81.4 listed by a secondary source</td>
+<td><a href="https://www.altmeyers.org/en/internal-medicine/immunodeficiency-78-with-autoimmunity-and-developmental-delay-157115">Altmeyers</a>; not verified in WHO ICD</td>
+</tr>
+<tr>
+<td>Orphanet / MeSH</td>
+<td>Not found; check Orphadata (<code>just fetch-reference ORPHA:…</code> if a code exists)</td>
+<td>n/a</td>
+</tr>
+<tr>
+<td>Synonyms</td>
+<td>IMD78; TPP2 deficiency; tripeptidyl peptidase II deficiency; TPPII deficiency; "Early-onset Evans syndrome, immunodeficiency and premature immunosenescence"</td>
+<td><a href="https://rarediseases.info.nih.gov/assets/singles/17766.json">rarediseases.info.nih.gov</a></td>
+</tr>
+<tr>
+<td>IUIS classification</td>
+<td>Listed in the IUIS inborn errors of immunity tables. Both are already cached: <code>PMID_35748970</code> (2022) and <code>PMID_41608114</code> (2024)</td>
+<td>repo cache</td>
+</tr>
+<tr>
+<td>Data basis</td>
+<td>Aggregated case reports. About 14 published patients</td>
+<td><a href="https://humandiseasegenes.nl/tpp2/professionals">humandiseasegenes.nl</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Naming.</strong> Under the <code>entry-naming</code> skill, "TPP2 Deficiency" covers exactly one gene, so it passes the scope rule. The OMIM title and "IMD78" should go in <code>synonyms</code>.</p>
+<h2>2. Etiology</h2>
+<ul>
+<li><strong>Cause.</strong> The disease is purely genetic: biallelic germline TPP2 variants with loss or reduction of TPP2 protein or function. No environmental cause is known.</li>
+<li><strong>Genetic risk factors.</strong></li>
+<li>Consanguinity is the main risk factor. Reported families include Arab, Syrian, Jordanian and Swiss ones.</li>
+<li>There is a <strong>Swiss founder allele</strong>: a 4.4 kb deletion of exons 20–23 on a shared chromosome 13 haplotype (<a href="https://pubmed.ncbi.nlm.nih.gov/33586135/" target="_blank" rel="noopener noreferrer">PMID:33586135</a>).</li>
+<li><strong>Protective factors.</strong> None known.</li>
+<li><strong>Gene–environment interaction.</strong> Viral infections, especially herpesviruses, appear to trigger or worsen cytopenias and leukopenia (<a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a>). This is a clinical observation, not a demonstrated mechanism.</li>
+</ul>
+<h2>3. Phenotypes</h2>
+<p>The phenotype splits into two forms.
+- <strong>(A) Severe childhood-onset multisystem form:</strong> about 10 patients, mostly with truncating variants.
+- <strong>(B) Adult-onset MS-like sterile neuroinflammation:</strong> 4 patients, all with missense variants.</p>
+<p>Patient counts come from <a href="https://humandiseasegenes.nl/tpp2/clinical-characteristics">humandiseasegenes.nl</a>. Frequencies are approximate given about 14 cases.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Form / onset</th>
+<th>Frequency (qualitative)</th>
+<th>Suggested HPO label (look up ID)</th>
+<th>Key PMID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Evans syndrome (AIHA + ITP)</td>
+<td>sign / lab</td>
+<td>A, infancy to early childhood</td>
+<td>frequent</td>
+<td>Autoimmune hemolytic anemia; Autoimmune thrombocytopenia</td>
+<td>25414442</td>
+</tr>
+<tr>
+<td>Autoimmune cytopenias / pancytopenia, progressive leukopenia</td>
+<td>lab</td>
+<td>A</td>
+<td>frequent</td>
+<td>Leukopenia; Pancytopenia</td>
+<td>25414442</td>
+</tr>
+<tr>
+<td>Recurrent viral infections (e.g. CMV, EBV)</td>
+<td>symptom</td>
+<td>A</td>
+<td>frequent</td>
+<td>Recurrent viral infections</td>
+<td>25414442</td>
+</tr>
+<tr>
+<td>Recurrent respiratory infections, otitis media</td>
+<td>symptom</td>
+<td>A and B</td>
+<td>common</td>
+<td>Recurrent respiratory infections; Recurrent otitis media</td>
+<td>33682069</td>
+</tr>
+<tr>
+<td>Combined immunodeficiency, lymphopenia</td>
+<td>lab</td>
+<td>A; mild lymphopenia in B</td>
+<td>frequent</td>
+<td>Combined immunodeficiency; Lymphopenia</td>
+<td>25414442</td>
+</tr>
+<tr>
+<td>Developmental delay / intellectual disability</td>
+<td>behavioural</td>
+<td>A</td>
+<td>common</td>
+<td>Global developmental delay; Intellectual disability</td>
+<td>25525876, 33586135</td>
+</tr>
+<tr>
+<td>Antinuclear and other autoantibodies</td>
+<td>lab</td>
+<td>A</td>
+<td>reported</td>
+<td>Antinuclear antibody positivity</td>
+<td>25414442</td>
+</tr>
+<tr>
+<td>Autoimmune hepatitis, thyroiditis</td>
+<td>sign</td>
+<td>A</td>
+<td>occasional</td>
+<td>Autoimmune hepatitis; Autoimmune thyroiditis</td>
+<td>humandiseasegenes.nl</td>
+</tr>
+<tr>
+<td>Hepatosplenomegaly / lymphoproliferation</td>
+<td>sign</td>
+<td>A</td>
+<td>occasional</td>
+<td>Hepatosplenomegaly</td>
+<td>25414442 (verify)</td>
+</tr>
+<tr>
+<td>Chronic sterile brain inflammation / demyelination mimicking MS</td>
+<td>sign / imaging</td>
+<td>B, adult</td>
+<td>all 4 form B cases</td>
+<td>CNS demyelination; Multiple sclerosis-like… (search HPO)</td>
+<td>30533531</td>
+</tr>
+<tr>
+<td>Psoriasis</td>
+<td>sign</td>
+<td>B</td>
+<td>2 of 4</td>
+<td>Psoriasiform dermatitis</td>
+<td>humandiseasegenes.nl</td>
+</tr>
+<tr>
+<td>Warts, eczema, asthma, paronychia, history of ITP</td>
+<td>sign</td>
+<td>mild childhood case</td>
+<td>single case</td>
+<td>Verruca vulgaris; Eczema; Asthma</td>
+<td>33682069</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Disease course.</strong>
+- Untreated, the immunodeficiency and autoimmunity are progressive.
+- The neurological phenotype does not appear to respond to HSCT.
+- Quality of life is dominated by refractory cytopenias, infections and neurodevelopmental impairment. No formal QoL instrument data exist.</p>
+<p><strong>Stratifying.</strong> A <code>has_subtypes</code> split could be justified:
+- <strong>Severe childhood multisystem.</strong> Truncating or null alleles. The 4.4 kb deletion, the frameshift and the c.1913+5G&gt;A splice variant belong here, although the splice case was milder.
+- <strong>Adult sterile neuroinflammation.</strong> Missense alleles, p.Cys28Gly and p.Thr676Ile.</p>
+<h2>4. Genetic and molecular information</h2>
+<p><strong>Gene.</strong> TPP2, tripeptidyl peptidase 2, on 13q33.1. Bind HGNC by lookup; the lowercase <code>hgnc:</code> CURIE is still needed. The protein is a subtilisin-family serine peptidase that assembles into a giant homo-oligomeric complex of about 6 MDa. It removes N-terminal tripeptides from oligopeptides, acting downstream of the proteasome.</p>
+<p><strong>Reported variants</strong> (all biallelic germline, mostly homozygous):</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Variant</th>
+<th>Type</th>
+<th>Phenotype</th>
+<th>Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Homozygous frameshift abolishing protein expression (exact HGVS to be read from the paper)</td>
+<td>frameshift, LoF</td>
+<td>Evans syndrome and immunodeficiency in 2 siblings</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a></td>
+</tr>
+<tr>
+<td>Variants reported by Lu et al. (HGVS to extract)</td>
+<td>LoF</td>
+<td>infections, autoimmunity, neurodevelopmental delay</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25525876/" target="_blank" rel="noopener noreferrer">PMID:25525876</a></td>
+</tr>
+<tr>
+<td>4.4 kb deletion, exons 20–23 (NM_003291.4)</td>
+<td>structural deletion → frameshift / PTC; Swiss founder</td>
+<td>4 individuals, 2 families: immunodeficiency, autoimmunity, intellectual disability</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33586135/" target="_blank" rel="noopener noreferrer">PMID:33586135</a></td>
+</tr>
+<tr>
+<td>c.1913+5G&gt;A</td>
+<td>splice region; predicted truncation removing the regions needed for dimerization</td>
+<td>mild phenotype, 15-year-old girl (described as the 7th case)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/33682069/" target="_blank" rel="noopener noreferrer">PMID:33682069</a></td>
+</tr>
+<tr>
+<td>c.82T&gt;G, p.Cys28Gly</td>
+<td>missense</td>
+<td>3 Syrian siblings with sterile brain inflammation mimicking MS</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30533531/" target="_blank" rel="noopener noreferrer">PMID:30533531</a></td>
+</tr>
+<tr>
+<td>c.2027C&gt;T, p.Thr676Ile</td>
+<td>missense</td>
+<td>1 Jordanian patient with MS (from 826 MS exomes screened)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/30533531/" target="_blank" rel="noopener noreferrer">PMID:30533531</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Mechanism class.</strong> Loss of function (<code>functional_impact_category: LOSS_OF_FUNCTION</code>). Missense alleles probably act as hypomorphs (<code>PARTIAL_LOSS_OF_FUNCTION</code> only if a source states it).</li>
+<li><strong>Genotype–phenotype.</strong> Severe patients mostly carry truncating or null alleles, while the MS-like adults carry missense variants (<a href="https://humandiseasegenes.nl/tpp2/professionals/molecular-characteristics">humandiseasegenes.nl</a>).</li>
+<li><strong>Not established:</strong></li>
+<li>ClinVar classifications and gnomAD frequencies were not retrieved. Check both.</li>
+<li>No ClinGen gene–disease validity record was found. Leave <code>gene_disease_validity</code> absent unless a <code>CGGV:</code> record exists.</li>
+<li>PanelApp rates TPP2 <strong>green</strong> (high evidence, biallelic) on both its primary immunodeficiency and intellectual disability panels.</li>
+<li>No modifier genes, epigenetic changes or chromosomal abnormalities have been reported.</li>
+</ul>
+<h2>5. Environmental information</h2>
+<p>There are no environmental, lifestyle or toxic causes. Viral infections act as clinical precipitants and opportunistic pathogens, but not as causal agents, so do not bind <code>infectious_agent</code>.</p>
+<h2>6. Mechanism and pathophysiology</h2>
+<p><strong>Causal chain</strong></p>
+<ol>
+<li><strong>Biallelic TPP2 LoF variants</strong> → absent or reduced TPP2 protein (frameshift and deletion alleles abolish expression; <a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a>, 33586135).</li>
+<li><strong>Loss of cytosolic tripeptidyl exopeptidase activity</strong> downstream of the proteasome → impaired recycling of proteasome-generated peptides into free amino acids, giving <strong>intracellular amino-acid insufficiency</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/25525876/" target="_blank" rel="noopener noreferrer">PMID:25525876</a>, shown in cells).</li>
+<li><strong>Branch A, metabolic (Lu et al. 2014):</strong> amino-acid shortage → compensatory <strong>increase in lysosome number</strong> → lysosomes degrade <strong>hexokinase-2 by chaperone-mediated autophagy</strong> → <strong>reduced glycolysis</strong> → reduced effector cytokine output (IFN-γ, IL-1β) → impaired antiviral and effector immunity → <strong>recurrent and viral infections</strong>. Demonstrated in patient and knockout cells; the link to clinical infection is inferred.</li>
+<li><strong>Branch B, survival and senescence:</strong> TPP2 loss activates cell-death and senescence programmes under proliferative stress → <strong>CD8⁺ T cells with a senescent phenotype</strong>, poor proliferation and enhanced staurosporine-induced apoptosis (<a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a>, patient cells), plus <strong>lymphopenia and leukopenia</strong>. Mouse knockouts show premature CD8 senescence, thymic involution and lymphopenia with age (<a href="https://pubmed.ncbi.nlm.nih.gov/18362329/" target="_blank" rel="noopener noreferrer">PMID:18362329</a>).</li>
+<li><strong>Branch C, antigen presentation:</strong> <strong>increased MHC class I surface expression</strong> on patient cells (<a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a>). TPP2 contributes to some MHC-I peptide trimming, but in vivo knockout studies show it is largely dispensable for this (<a href="https://pubmed.ncbi.nlm.nih.gov/19841172/" target="_blank" rel="noopener noreferrer">PMID:19841172</a>). How raised MHC-I contributes to disease is unclear.</li>
+<li><strong>Premature immunosenescence of B cells</strong> → expansion of <strong>T-bet⁺ CD11c⁺ age-associated B cells</strong> plus autoantibodies (ANA, anti-nucleolar, anti-cytoplasmic) → <strong>autoantibody-mediated destruction of red cells and platelets</strong> → <strong>Evans syndrome</strong>, plus other organ autoimmunity (hepatitis, thyroiditis). The link from age-associated B cells to cytopenia is associative, not proven.</li>
+<li><strong>Branch D, CNS (inferred):</strong> TPP2 dysfunction in brain or immune cells → <strong>chronic sterile neuroinflammation and demyelination</strong> (MS-like) and <strong>neurodevelopmental impairment</strong>. The mechanism is undetermined. TPP2 is strongly upregulated in MS brain tissue (<a href="https://pubmed.ncbi.nlm.nih.gov/30533531/" target="_blank" rel="noopener noreferrer">PMID:30533531</a>). A 2024 mouse study links TPP2 depletion to calcium and lipid dyshomeostasis and dementia in female mice (<a href="https://pubmed.ncbi.nlm.nih.gov/38389851/" target="_blank" rel="noopener noreferrer">PMID:38389851</a>; model organism only, and not yet read).</li>
+</ol>
+<p><strong>Suggested ontology anchors (labels only; look up IDs)</strong>
+- <strong>GO:</strong> tripeptidyl-peptidase activity; proteolysis; cellular amino acid homeostasis; glycolytic process (DECREASED); chaperone-mediated autophagy (INCREASED); lysosome organization; cellular senescence / T cell senescence; T cell proliferation (DECREASED); apoptotic process (INCREASED); antigen processing and presentation of peptide antigen via MHC class I; B cell activation; interferon-gamma production (DECREASED).
+- <strong>CL:</strong> CD8-positive, alpha-beta T cell; B cell (age-associated B cells; NCIT/CL may lack a specific term, so use the <code>preferred_term</code>); erythrocyte; platelet; neuron or oligodendrocyte for the CNS branch.
+- <strong>GO cellular component:</strong> cytosol; lysosome.</p>
+<p><strong>Molecular profiling.</strong> No public transcriptomic, proteomic or single-cell dataset specific to TPP2 deficiency was found. Run <code>just discover-datasets TPP2_Deficiency</code> and triage for relevance.</p>
+<h2>7. Anatomical structures</h2>
+<ul>
+<li><strong>Primary systems:</strong> immune system (blood, bone marrow, lymphoid organs, thymus) and haematopoietic system (red cells, platelets, leukocytes).</li>
+<li><strong>Secondary systems:</strong></li>
+<li>brain and CNS white matter (neurodevelopment; MS-like demyelination in form B);</li>
+<li>liver (autoimmune hepatitis; one patient had a liver transplant);</li>
+<li>thyroid;</li>
+<li>skin (psoriasis, warts, eczema);</li>
+<li>spleen (splenomegaly, splenectomy).</li>
+<li><strong>Suggested UBERON labels:</strong> blood, bone marrow, spleen, thymus, brain white matter, liver, thyroid gland.</li>
+<li><strong>Subcellular:</strong> cytosol, where TPP2 functions; lysosome (the expanded compartment).</li>
+<li><strong>Lateralization:</strong> not applicable (systemic).</li>
+</ul>
+<h2>8. Temporal development</h2>
+<ul>
+<li><strong>Onset:</strong></li>
+<li>Severe form: infancy to early childhood. Evans syndrome began in infancy in the Stepensky siblings.</li>
+<li>Mild splice case: childhood ITP, then a milder course into adolescence.</li>
+<li>MS-like form: adulthood.</li>
+<li><strong>Course:</strong> chronic and progressive without HSCT. Cytopenias relapse and are often refractory, and infections worsen leukopenia. The neurological course in form B was described as mild and non-progressive in the Syrian family (<a href="https://pubmed.ncbi.nlm.nih.gov/30533531/" target="_blank" rel="noopener noreferrer">PMID:30533531</a>).</li>
+<li><strong>Critical window:</strong> early diagnosis enables immune surveillance and timely HSCT before refractory autoimmunity or fatal infection (<a href="https://pubmed.ncbi.nlm.nih.gov/33586135/" target="_blank" rel="noopener noreferrer">PMID:33586135</a>).</li>
+</ul>
+<h2>9. Inheritance and population</h2>
+<ul>
+<li><strong>Inheritance:</strong> autosomal recessive (bind the HPO autosomal recessive inheritance term by lookup). Penetrance looks complete for the severe form; expressivity is variable.</li>
+<li><strong>Prevalence:</strong> unknown. About 14 patients were described worldwide by 2021 (10 severe, 4 adult MS-like), and the condition is probably underdiagnosed. Use <code>measure_type: CASES_IN_LITERATURE</code> with <code>prevalence_class: ULTRA_RARE</code> or <code>NOT_YET_DOCUMENTED</code>.</li>
+<li><strong>Founder effect:</strong> Swiss exon 20–23 deletion (<a href="https://pubmed.ncbi.nlm.nih.gov/33586135/" target="_blank" rel="noopener noreferrer">PMID:33586135</a>).</li>
+<li><strong>Populations and consanguinity:</strong> consanguineous Middle Eastern families (Syrian, Jordanian, and others, per Stepensky and Lu) and Swiss families.</li>
+<li><strong>Sex ratio:</strong> no bias expected.</li>
+<li><strong>Not reported:</strong> carrier frequency, anticipation, germline mosaicism.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<p><strong>Laboratory work-up</strong>
+- full blood count;
+- direct antiglobulin test (Coombs);
+- platelet antibodies;
+- lymphocyte subsets: CD4/CD8, naive/memory, senescent CD8 markers such as CD57⁺ and CD28⁻;
+- B-cell phenotyping for CD11c⁺ T-bet⁺ age-associated B cells;
+- immunoglobulins;
+- autoantibodies (ANA);
+- viral PCR (CMV, EBV);
+- liver and thyroid autoimmunity panels.</p>
+<p><strong>Specialist and research tests:</strong> increased MHC class I on lymphocytes; absent TPP2 protein on immunoblot; T-cell proliferation assays.</p>
+<p><strong>Imaging:</strong> brain MRI for white-matter inflammation or demyelination in the adult form. CSF may show inflammatory changes; verify against <a href="https://pubmed.ncbi.nlm.nih.gov/30533531/" target="_blank" rel="noopener noreferrer">PMID:30533531</a>.</p>
+<p><strong>Genetic testing</strong>
+- Exome or genome sequencing, or an inborn errors of immunity / immune dysregulation panel. TPP2 is on Genomics England PanelApp panels for primary immunodeficiency, immune dysregulation and intellectual disability.
+- Exome sequencing can miss the 4.4 kb deletion. The Swiss patients were diagnosed only after <strong>genome</strong> analysis (<a href="https://pubmed.ncbi.nlm.nih.gov/33586135/" target="_blank" rel="noopener noreferrer">PMID:33586135</a>), which favours genome sequencing or CNV-aware analysis.</p>
+<p><strong>Differential diagnosis</strong> (other monogenic Evans syndrome and ALPS-like disorders; see cached <a href="https://pubmed.ncbi.nlm.nih.gov/34447369/" target="_blank" rel="noopener noreferrer">PMID:34447369</a> and <a href="https://pubmed.ncbi.nlm.nih.gov/30349415/" target="_blank" rel="noopener noreferrer">PMID:30349415</a>):
+- ALPS (FAS, FASLG, CASP10);
+- CTLA4 haploinsufficiency;
+- LRBA deficiency;
+- STAT3 gain of function;
+- KRAS/NRAS-associated RALD;
+- common variable immunodeficiency.</p>
+<p>The CNS form must be distinguished from true multiple sclerosis.</p>
+<p><strong>Screening:</strong> no newborn screening exists. TREC levels are not reported as abnormal. Cascade carrier testing and prenatal or preimplantation testing are possible in families with known variants.</p>
+<p><strong>Coding the diagnosis:</strong> LOINC codes such as the direct antiglobulin test and platelet count can go in <code>diagnosis[].measurements</code>, but bind them through <code>just loinc-seed-cache</code> only.</p>
+<h2>11. Outcome and prognosis</h2>
+<ul>
+<li><strong>Mortality is high without transplant.</strong> In one summary, 3 of 5 patients treated with splenectomy, HSCT or orthotopic liver transplantation died; HSCT gave the best outcome (<a href="https://humandiseasegenes.nl/tpp2/professionals/management">humandiseasegenes.nl</a>). OMIM, via MedGen, notes that many patients die young but that successful HSCT may be curative.</li>
+<li><strong>Causes of death and morbidity:</strong> refractory cytopenias, infections, transplant complications.</li>
+<li><strong>HSCT does not appear to change the neurological phenotype.</strong></li>
+<li><strong>Prognostic factors:</strong> truncating alleles (severe) versus missense (mild); response to immunosuppression; access to an HLA-matched donor.</li>
+</ul>
+<h2>12. Treatment</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Intervention</th>
+<th>Role</th>
+<th>Evidence</th>
+<th>Suggested NCIT label (look up ID)</th>
+<th><code>therapeutic_modality</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Allogeneic HSCT. In Stepensky's case: HLA-identical sibling donor, conditioning with fludarabine, low-dose busulfan, thiotepa and ATG. At 6 months: 97% donor chimerism, no autoimmunity, off immunosuppression</td>
+<td>only curative option for haematological and immune disease</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a> (single case)</td>
+<td>Hematopoietic Cell Transplantation</td>
+<td>CELL_THERAPY</td>
+</tr>
+<tr>
+<td>Corticosteroids, IVIG</td>
+<td>first line for cytopenias</td>
+<td>case-level; general Evans syndrome practice (<a href="https://pubmed.ncbi.nlm.nih.gov/30349415/" target="_blank" rel="noopener noreferrer">PMID:30349415</a>)</td>
+<td>Pharmacotherapy + agent; Immunoglobulin Therapy (verify)</td>
+<td>SMALL_MOLECULE / OTHER</td>
+</tr>
+<tr>
+<td>Rituximab, mycophenolate, sirolimus, cyclosporine</td>
+<td>second line for refractory cytopenias</td>
+<td>reported in TPP2 cases (verify per paper) and general Evans syndrome practice</td>
+<td>Pharmacotherapy + agent (rituximab, CHEBI/NCIT)</td>
+<td>MONOCLONAL_ANTIBODY / SMALL_MOLECULE</td>
+</tr>
+<tr>
+<td>Splenectomy</td>
+<td>refractory cytopenias; high infection risk</td>
+<td>case reports</td>
+<td>Splenectomy</td>
+<td>SURGERY</td>
+</tr>
+<tr>
+<td>Antimicrobial and antiviral prophylaxis; Ig replacement</td>
+<td>supportive</td>
+<td>expert practice</td>
+<td>Supportive Care</td>
+<td>OTHER</td>
+</tr>
+<tr>
+<td>Liver transplantation</td>
+<td>performed for liver disease in one patient</td>
+<td>humandiseasegenes.nl</td>
+<td>Organ Transplantation</td>
+<td>SURGERY</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Experimental:</strong> Atallah et al. speculate about enzyme replacement by analogy with TPP1/CLN2. This is a hypothesis only, with no trial. Do not use cerliponase evidence here.</li>
+<li>No ClinicalTrials.gov trials are specific to TPP2 deficiency.</li>
+<li>No pharmacogenomic data.</li>
+</ul>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary and secondary:</strong> genetic counselling, carrier testing in consanguineous or founder populations, and prenatal or preimplantation diagnosis for known familial variants.</li>
+<li><strong>Tertiary:</strong> immune monitoring, infection prophylaxis, early HSCT referral, and avoiding live vaccines in combined immunodeficiency (general practice for inborn errors of immunity; not TPP2-specific evidence).</li>
+</ul>
+<h2>14. Other species and natural disease</h2>
+<ul>
+<li>No naturally occurring animal disease is recorded; OMIA was not searched in depth.</li>
+<li>TPP2 is highly conserved from bacteria-like ancestors through <em>Drosophila</em> and mouse.</li>
+<li><strong>Mouse orthologue:</strong> <em>Tpp2</em>. Get the MGI ID from Alliance and bind with the <code>MGI:</code> prefix under <code>animal_models[].genes</code>.</li>
+</ul>
+<h2>15. Model organisms</h2>
+<p><strong>TPPII knockout mouse (<a href="https://pubmed.ncbi.nlm.nih.gov/18362329/" target="_blank" rel="noopener noreferrer">PMID:18362329</a>, PNAS 2008)</strong>
+- Young mice are grossly normal.
+- After 1 year: higher mortality, an aged appearance, thymic involution, strong lymphopenia, and premature senescence of CD8⁺ (but not CD4⁺) T cells after anti-CD3 stimulation.
+- <strong>Recapitulates:</strong> the immunosenescence and lymphopenia branch (<code>PARTIALLY_RECAPITULATES</code>).
+- <strong>Does not reproduce:</strong> early-onset Evans syndrome or neurodevelopmental delay. That gap is a candidate <code>HUMAN_MODEL_MISMATCH</code> discussion.</p>
+<p><strong>Other mouse and cell studies</strong>
+- <strong>TPPII-deficient mice, MHC-I presentation (<a href="https://pubmed.ncbi.nlm.nih.gov/19841172/" target="_blank" rel="noopener noreferrer">PMID:19841172</a>):</strong> largely normal MHC class I antigen presentation in vivo. Useful as refuting or limiting evidence for an antigen-presentation-driven mechanism.
+- <strong>Patient and knockout cells, Lu et al. (<a href="https://pubmed.ncbi.nlm.nih.gov/25525876/" target="_blank" rel="noopener noreferrer">PMID:25525876</a>):</strong> amino-acid shortage, lysosome expansion, HK2 degradation by chaperone-mediated autophagy, and reduced glycolysis. Lineage is <code>IN_VITRO</code> / <code>MODEL_ORGANISM</code>; split evidence items by source.
+- <strong>Female TPP2-depleted mice (<a href="https://pubmed.ncbi.nlm.nih.gov/38389851/" target="_blank" rel="noopener noreferrer">PMID:38389851</a>, 2024):</strong> presenile dementia through calcium and lipid dyshomeostasis. Possibly relevant to the CNS branch, but not yet read.</p>
+<hr />
+<h2>Next steps for the KB entry</h2>
+<ol>
+<li>Fetch and cache these references: <a href="https://pubmed.ncbi.nlm.nih.gov/25414442/" target="_blank" rel="noopener noreferrer">PMID:25414442</a>, 25525876, 33586135, 33682069, 30533531, 18362329, 19841172, and optionally 27829551 (review) and 38389851. Then pull exact snippets and run <code>just count-verified-snippets</code>.</li>
+<li>Get the exact HGVS for the Stepensky and Lu variants from full text, since abstracts may give protein changes only.</li>
+<li>Run <code>just check-genereviews</code>. No GeneReviews chapter is expected for TPP2; confirm it offline.</li>
+<li>Look up every HPO, GO, CL, UBERON, NCIT and HGNC CURIE before writing it.</li>
+</ol>
+<h2>Sources</h2>
+<ul>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4463807">Stepensky et al. 2015 Blood, PMC4463807</a> · <a href="https://www.rareconnect.org/uploads/documents/early-onset-evans-syndrome-immunodeficiency-and-premature-immunosenescence-associated-with-tripeptidyl-peptidase-ii-deficiency.pdf">RareConnect PDF</a></li>
+<li><a href="https://research.birmingham.ac.uk/en/publications/dual-proteolytic-pathways-govern-glycolysis-and-immune-competence">Lu et al. 2014 Cell (Birmingham record)</a></li>
+<li><a href="https://zendy.io/title/10.1111/cge.13942">Atallah et al. 2021 Clin Genet</a> · <a href="https://serval.unil.ch/fr/notice/serval:BIB_ED69F497CA09">Serval record</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7937547">Stockdale et al. 2021 J Clin Immunol, PMC7937547</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6244017">Reinthaler et al. 2018 Neurol Genet, PMC6244017</a></li>
+<li><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC2278225">Huai et al. 2008 PNAS, PMC2278225</a></li>
+<li><a href="https://humandiseasegenes.nl/tpp2/clinical-characteristics">humandiseasegenes.nl TPP2: clinical</a>, <a href="https://humandiseasegenes.nl/tpp2/professionals/molecular-characteristics">molecular</a>, <a href="https://humandiseasegenes.nl/tpp2/professionals/management">management</a></li>
+<li><a href="https://https.ncbi.nlm.nih.gov/medgen/1785772">MedGen IMD78</a> · <a href="https://panelapp.genomicsengland.co.uk/panels/398/gene/TPP2">PanelApp TPP2 (PID)</a> · <a href="https://panelapp.genomicsengland.co.uk/panels/285/gene/TPP2/">PanelApp TPP2 (ID)</a> · <a href="https://panelapp-aus.org/panels/229/gene/TPP2/">PanelApp Australia</a></li>
+<li><a href="https://www.altmeyers.org/en/internal-medicine/immunodeficiency-78-with-autoimmunity-and-developmental-delay-157115">Altmeyers IMD78</a> · <a href="https://rarediseases.info.nih.gov/assets/singles/17766.json">GARD JSON</a> · <a href="https://genecards.org/card/TPP2">GeneCards TPP2</a> · <a href="https://www.kegg.jp/entry/H02526">KEGG H02526</a></li>
+<li>Europe PMC REST records for PMIDs 25414442, 25525876, 33586135, 33682069, 30533531, 18362329, 19841172</li>
+<li>Repository cache: <code>references_cache/PMID_30349415.md</code> (Evans syndrome review naming TPP2), <code>PMID_34447369.md</code>, <code>PMID_35748970.md</code>, <code>PMID_41608114.md</code>, <code>PMID_37792884.md</code></li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.6.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>14</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>14</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>9</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>References that may not be about this subject</h3>
+<p>These identifiers resolve, so they are not fabrications, but the records they resolve to share almost none of this report's vocabulary. That is a clue and not a verdict - a paper can be relevant in ways its title and abstract do not spell out - so read them before deciding:</p>
+<ul>
+<li><code>PMID:19841172</code> (2 mentions) - Analysis of the role of tripeptidyl peptidase II in MHC class I antigen presentation in vivo.</li>
+<li>shared terms: cell</li>
+</ul>
+<p>Weighed against this report's own most characteristic terms: <code>tpp2</code>, <code>patient</code>, <code>infection</code>, <code>evan</code>, <code>syndrome</code>, <code>variant</code>, <code>cell</code>, <code>disease</code>, <code>autoimmunity</code>, <code>immune</code>, <code>immunodeficiency</code>, <code>form</code>, <code>deficiency</code>, <code>cytopenias</code>, <code>gene</code>, <code>brain</code>, <code>humandiseasegene</code>, <code>deletion</code>, <code>viral</code>, <code>look</code>.</p>
+<p>All extracted references resolved successfully.
+Resolving is not the same as being relevant, though - see the references listed above as possibly off topic.</p>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>1</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>MONDO:0030971</code> (2 mentions) - the report calls it "MONDO"; MONDO calls it <strong>immunodeficiency 78 with autoimmunity and developmental delay</strong></li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="TPM4-related_Platelet_Disorder-openscientist.html">← TPM4-related Platelet Disorder (OpenScientist)</a>
+                
+                
+                <a href="Trachoma-falcon.html">Trachoma (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/TPP2_Deficiency.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/TPP2_Deficiency-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
