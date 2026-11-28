@@ -804,7 +804,7 @@ def test_rendered_mediator_complex_pathograph_payload_is_hierarchical_and_subtyp
             },
             {
                 "Stereocilia Dysfunction in Cochlear Hair Cells": [
-                    "microfilament motor activity"
+                    "minus-end directed microfilament motor activity"
                 ]
             },
         ),
