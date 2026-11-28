@@ -123,7 +123,7 @@ classes:
         pattern: '^https://\S+$'
         multivalued: true
 
-  OntologyChangeSet:
+  MappingChangeSetBase:
     description: >-
       A named, coordinated change referencing atomic proposal IDs. Stored at
       ontology_changes/change_sets/<id>.yaml. Membership is recorded here once;
@@ -157,12 +157,12 @@ classes:
         range: uri
         pattern: '^https://\S+$'
         multivalued: true
-        description: Source snapshot URLs from both members, with duplicates removed.
+        description: Source snapshot URLs from all members, with duplicates removed.
       upstream_requests:
         range: uri
         pattern: '^https://\S+$'
         multivalued: true
-        description: Filed issue and PR URLs from both members, not an aggregate status.
+        description: Filed issue and PR URLs from all members, not an aggregate status.
       member_statuses:
         range: ChangeSetMemberStatus
         multivalued: true
@@ -178,10 +178,47 @@ classes:
         description: Related links from the members, excluding links back to this change set.
       ontology:
         required: true
-        description: Owning ontology, copied from both member proposals.
+        description: Owning ontology, shared by all member proposals.
       mapping_representation:
         range: MappingRepresentation
         required: true
+
+  OntologyChangeSet:
+    is_a: MappingChangeSetBase
+    description: >-
+      A coordinated mapping change with any number of atomic edits. Before and
+      after list the withdrawn and introduced assertions, not the complete
+      ontology or unchanged context. The changes are a simultaneous delta,
+      not an ordered program. MAPPING_MOVE is a constrained special case.
+    attributes:
+      changes:
+        multivalued: true
+        required: true
+        minimum_cardinality: 1
+        pattern: '^[a-z][a-z0-9]*(-[a-z0-9]+)+$'
+        description: Unique IDs of mapping edit proposals; list order does not imply execution order.
+      before:
+        range: MappingAssertion
+        multivalued: true
+        inlined_as_list: true
+        required: true
+        minimum_cardinality: 0
+        description: Withdrawn assertions; empty for a pure addition.
+      after:
+        range: MappingAssertion
+        multivalued: true
+        inlined_as_list: true
+        required: true
+        minimum_cardinality: 0
+        description: Introduced assertions; empty for a pure removal.
+
+  LegacyMappingMove:
+    is_a: MappingChangeSetBase
+    description: >-
+      Read compatibility for the former pairwise MAPPING_MOVE shape. New records
+      use OntologyChangeSet. Refresh migrates these fields to changes and lists
+      of assertions without altering the atomic records or curated rationale.
+    attributes:
       before:
         range: MappingAssertion
         inlined: true
@@ -306,6 +343,12 @@ classes:
 enums:
   OntologyChangeSetType:
     permissible_values:
+      MAPPING_RESTRUCTURE:
+        description: >-
+          A coordinated N-to-M mapping delta using removals, creations and
+          predicate changes. All edits share an ontology and representation.
+          This changes mapping assertions, not the identities of their endpoints;
+          concept merges or splits require explicit operations of their own.
       MAPPING_MOVE:
         description: >-
           Move a mapping between two distinct subjects in the same ontology,
