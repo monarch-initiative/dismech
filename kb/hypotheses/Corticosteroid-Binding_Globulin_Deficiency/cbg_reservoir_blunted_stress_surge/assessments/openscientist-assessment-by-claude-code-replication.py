@@ -49,8 +49,8 @@ def run(bmax, kd=30.0, k_alb=1.7, cl=1.0, basal=10.0, stress_mult=5.0, dur=1.0):
         prev_free = free
         free_peak = max(free_peak, free)
         total_peak = max(total_peak, total)
-    return dict(rest_free=f0, rest_total=t0, free_auc=free_auc,
-                free_peak=free_peak, total_peak=total_peak)
+    return {"rest_free": f0, "rest_total": t0, "free_auc": free_auc,
+            "free_peak": free_peak, "total_peak": total_peak}
 
 
 print("kd\tk_alb\tmult\tdur_h\trest_total_ratio\tfree_auc_ratio\tfree_peak_ratio\ttotal_peak_ratio")
