@@ -95067,6 +95067,88 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Chalazion",
+    "disease_id": "MONDO:0005844",
+    "category": "Complex",
+    "parents": [
+      "eyelid disorder",
+      "meibomian gland disorder"
+    ],
+    "creation_date": "2026-11-28T15:18:29Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Chalazion is a chronic, usually painless eyelid nodule in which obstruction of a meibomian gland (deep chalazion) or, less often, a gland of Zeis (superficial chalazion) retains meibum that provokes a sterile lipogranulomatous foreign-body reaction. It is the most common inflammatory eyelid lesion, occurs at all ages, is associated with blepharitis, meibomian gland dysfunction, rosacea and ocular Demodex infestation, and usually resolves with conservative care. Large upper-lid lesions can press on the cornea and induce astigmatism, which matters for amblyopia risk in young children. MONDO classifies chalazion under internal hordeolum and therefore within its bacterial (staphylococcal) infection subtree, but the lesion itself is typically sterile; infection is a feature of the hordeolum, not of the chalazion.",
+    "pathophysiology": [
+      "Meibomian Gland Dysfunction and Lid-Margin Disease",
+      "Meibomian Gland Duct Obstruction",
+      "Retained Meibum as Persistent Lipid Stimulus",
+      "Lipogranulomatous Inflammation",
+      "Mechanical Corneal Compression"
+    ],
+    "cell_types": [
+      "macrophage",
+      "CD4-positive T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000624"
+    ],
+    "biological_processes": [
+      "chronic inflammatory response",
+      "inflammatory response",
+      "granuloma formation"
+    ],
+    "phenotypes": [
+      "Chalazion Nodule",
+      "Eyelid Swelling",
+      "Eyelid Tenderness",
+      "Astigmatism",
+      "Amblyopia",
+      "Blurred Vision",
+      "Ptosis"
+    ],
+    "phenotype_categories": [],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Eye",
+      "Head and Neck",
+      "Integument",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0010605",
+      "HP:0100540",
+      "HP:0034808",
+      "HP:0000483",
+      "HP:0000646",
+      "HP:0000622",
+      "HP:0000508"
+    ],
+    "frequencies": [],
+    "genes": [],
+    "treatments": [
+      "Warm compresses and lid hygiene",
+      "Intralesional triamcinolone acetonide injection",
+      "Incision and curettage",
+      "Tea tree oil lid scrubs for Demodex-associated recurrence",
+      "Antibiotics (no demonstrated benefit)"
+    ],
+    "environmental": [
+      "Ocular Demodex infestation",
+      "Tobacco smoking",
+      "Low serum vitamin A"
+    ],
+    "biochemical": [],
+    "source_file": "Chalazion.yaml",
+    "page_url": "../pages/disorders/Chalazion.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 5,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Chancroid",
     "disease_id": "MONDO:0001797",
     "category": "Infectious Disease",
@@ -367411,6 +367493,117 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Pulpitis",
+    "disease_id": "MONDO:0006937",
+    "category": "Infectious Disease",
+    "parents": [
+      "Dental Pulp Disorder",
+      "Bacterial Infectious Disease",
+      "Inflammatory Disease"
+    ],
+    "creation_date": "2026-11-28T15:18:24Z",
+    "updated_date": null,
+    "subtypes": [
+      "Reversible Pulpitis",
+      "Symptomatic Irreversible Pulpitis",
+      "Asymptomatic Irreversible Pulpitis"
+    ],
+    "description": "Pulpitis is inflammation of the dental pulp. It is usually caused by bacteria of a deep carious lesion whose products, and then the bacteria themselves, reach the pulp through dentinal tubules; crown fracture and operative dental procedures are less common causes. Odontoblasts at the pulp-dentine border sense bacterial products and start an innate inflammatory response, and pulpal sensory nerves add neurogenic inflammation and pain. Clinically it is graded as reversible pulpitis, where the pulp heals once the cause is removed, or irreversible pulpitis, symptomatic or asymptomatic, where it cannot. Untreated irreversible pulpitis progresses to pulp necrosis, infection of the root canal and apical periodontitis. MONDO places the term under both dental pulp disorder and bacterial infectious disease; the bacterial cause is a polymicrobial caries community rather than one pathogen, and the dental caries itself is curated separately (Dental_Caries).",
+    "pathophysiology": [
+      "Cariogenic Biofilm Penetration of Dentine",
+      "Traumatic or Operative Pulp Insult",
+      "Odontoblast Pathogen Recognition",
+      "Tertiary Dentine Formation",
+      "Pulpal Neurogenic Inflammation",
+      "Pulpal Leukocyte Recruitment and Cytokine Release",
+      "Pulpal Nociceptor TRP Channel Sensitization",
+      "Bacterial Invasion of Pulp Tissue",
+      "Pulp Necrosis",
+      "Apical Periodontitis"
+    ],
+    "cell_types": [
+      "odontoblast",
+      "sensory neuron",
+      "neutrophil",
+      "macrophage",
+      "dendritic cell",
+      "T cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000060",
+      "CL:0000101",
+      "CL:0000775",
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0000084"
+    ],
+    "biological_processes": [
+      "toll-like receptor signaling pathway",
+      "dentinogenesis",
+      "neuropeptide signaling pathway",
+      "inflammatory response",
+      "neutrophil chemotaxis",
+      "detection of temperature stimulus involved in sensory perception of pain",
+      "cell death",
+      "bone resorption"
+    ],
+    "phenotypes": [
+      "Stimulus-Evoked Tooth Pain",
+      "Lingering Thermal Tooth Pain",
+      "Spontaneous Tooth Pain",
+      "Referred Tooth Pain",
+      "Carious Teeth",
+      "Periapical Bone Loss",
+      "Periapical Tooth Abscess",
+      "Fever"
+    ],
+    "phenotype_categories": [
+      "Clinical"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Head and Neck",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0012531",
+      "HP:0000670",
+      "HP:0000700",
+      "HP:0030758",
+      "HP:0001945"
+    ],
+    "frequencies": [
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Selective Caries Removal with Indirect Pulp Capping",
+      "Direct Pulp Capping",
+      "Pulpotomy",
+      "Root Canal Treatment",
+      "Tooth Extraction",
+      "Local Anaesthesia by Inferior Alveolar Nerve Block",
+      "NSAID Premedication Before Nerve Block",
+      "Interim Analgesia with Ibuprofen and Acetaminophen",
+      "Systemic Antibiotics Restricted to Systemic Involvement"
+    ],
+    "environmental": [
+      "Dental trauma with crown fracture",
+      "Operative dental procedures",
+      "Periodontal disease"
+    ],
+    "biochemical": [],
+    "source_file": "Pulpitis.yaml",
+    "page_url": "../pages/disorders/Pulpitis.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 10,
+    "num_genes": 0,
+    "num_treatments": 9,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Punctate Palmoplantar Keratoderma",
     "disease_id": "MONDO:0017675",
     "category": "Mendelian",
@@ -460937,17 +461130,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4226,
-  "total_subtypes": 5192,
-  "total_disorders_and_subtypes": 9418,
-  "total_unique_evidence_sources": 63567,
-  "total_unique_publications": 59387,
+  "total_disorder_pages": 4228,
+  "total_subtypes": 5195,
+  "total_disorders_and_subtypes": 9423,
+  "total_unique_evidence_sources": 63613,
+  "total_unique_publications": 59433,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4224,
-  "total_unique_pathological_events": 28005,
+  "total_pathographs": 4226,
+  "total_unique_pathological_events": 28020,
   "total_modules": 242,
-  "total_research_reports": 4331,
+  "total_research_reports": 4333,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 161
