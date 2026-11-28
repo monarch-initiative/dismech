@@ -732,6 +732,99 @@ conformance from `Post-Traumatic_Epilepsy`. Its finite-element head model is the
 **Still open.** Whether injury entries need their own `check-granularity`-style audit,
 or §3e's checks are enough to copy. Decide after the pilot.
 
+### 3g. Composite and multi-moiety chemical granularity (2026-11-25)
+
+**Status: PROPOSED.** Awaiting maintainer sign-off. Two entries were curated alongside
+it as its first test cases — `Sodium_Azide_Poisoning`, and a firing-range exposure record
+on `Lead_Poisoning` — and both stand under the pre-existing rules, so revising this
+section would not invalidate them.
+
+**Problem.** §1 puts environmental and exposure-related disease in scope, and §3a, §3e
+and §3f give granularity ladders for cancer, infection and injury. None covers a chemical
+that is a *composite*: a salt whose cation and anion are separately toxic, a mixture, an
+adulterated product, or a substance whose toxicity is carried by a metabolite. Lead azide
+is the case that raised the question. It is used industrially as a detonator initiator;
+its cation is the subject of `Lead_Poisoning`, and its anion inhibits cytochrome c
+oxidase, which is the mechanism `xenobiotic_oxidative_phosphorylation_blockade` already
+models for cyanide and carbon monoxide. Exposure routes exist for the intact compound and
+for each moiety, and nothing recorded which of the three is an entry.
+
+**Rule: the entry sits on the toxic moiety unless the composite has a mechanism of its own.**
+
+| Situation | Represent as | Examples |
+|---|---|---|
+| The composite's toxicity is its moieties' toxicity, differing only in how much of each is absorbed | An entry per **moiety**; the composite is an `environmental:` record on each, linked with `influences_mechanisms` | lead azide (lead + azide), most inorganic salts |
+| A metabolite or breakdown product carries the toxicity | An entry for the **parent substance**, with the toxic species as a pathophysiology node | methanol (formate), diethylene glycol (diglycolic acid) |
+| The composite produces a syndrome neither moiety produces | An entry for the **composite** | toxic oil syndrome (aniline-adulterated rapeseed oil) |
+| A class of agents sharing one mechanism | An entry at the **class** level, or a `GROUPING` | nerve agent poisoning, organophosphate poisoning |
+| A chemical category with no single mechanism | An `OUT_OF_SCOPE` stub, or — where the composite has no MONDO term — a note in this register | *azide*, *heavy metal poisoning* as a class |
+
+**Why the moiety is the default.** Mechanism and treatment both follow it. Chelation
+treats the lead; hemodynamic support and the candidate azide antidotes treat the azide;
+nothing treats the intact compound. This is §3e's reasoning applied to chemistry — the
+level the field diagnoses and treats as a unit — and the literature sits at the same
+level. A PubMed search on 2026-11-25 for `"lead azide"[tiab]` paired with toxicity,
+poisoning, exposure, occupational and health terms returned 16 records: 14 are
+materials-chemistry papers on replacing the compound, one is an NTP sodium azide rodent
+study (PMID:12637970), and one is a 1986 blast-physics paper. No clinical case, cohort or
+occupational-health study describes poisoning by the intact compound. The substitution
+programme is itself driven by the lead content, which is the moiety-level reading of the
+hazard.
+
+**What the composite contributes is usually ADME, not mechanism.** Speciation, solubility,
+particle size and route decide how much of each moiety is absorbed and how fast. That is a
+property of an exposure, so it belongs in an `environmental:` record with `exposure_term`
+bound and `influences_mechanisms` naming the node the exposure initiates — not in a new
+entry, and not in a new slot. This rule needs no schema change.
+
+**Duplication across the moiety entries is expected, not a defect.** Two entries each
+carrying their own copy of a shared chain is what `conforms_to` is for, and conformance is
+explicitly not DRY. Where the moieties' chains converge — lead and azide both reach
+mitochondrial dysfunction and oxidative stress — the convergence is held once in a module
+that both entries conform to, so modelling the composite adds nothing the modules do not
+already carry.
+
+**The ontology constraint points the same way.** Lead azide has no MONDO term (an OLS
+search scoped to `mondo` on 2026-11-25 returned 0 hits for each of `azide`, `hydrazoic`,
+`sodium azide` and `azide poisoning`), no ChEBI term and no ECTO term; the only identifier
+found for it was `mesh:C037372`. Both moieties bind cleanly: `MONDO:0018019` lead
+poisoning with `ECTO:9000945` exposure to lead, and `CHEBI:278547` sodium azide with
+`ECTO:9001253` exposure to sodium azide. Under §4 and *no term beats a bad one*, a
+composite entry would have nothing correct to anchor on. Where a composite does earn an
+entry and MONDO lacks the term, the `Aconitine_Poisoning` precedent governs: no
+`disease_term`, an ONTOLOGY GAP `notes` field recording the exact searches run, and an
+ICD-10-CM `broadMatch` where a billing-level container exists.
+
+**A composite with no MONDO term cannot be recorded as a stub.** `CurationStub.mondo_id`
+is required and patterned `^MONDO:[0-9]{7}$`, so the `OUT_OF_SCOPE` route that normally
+retires a concept and stops it being re-nominated is unavailable for precisely the
+composites this section rules out. Lead azide is therefore recorded here, in the register,
+rather than in `stubs/`.
+
+**Co-exposure is not a comorbidity.** One exposure delivering two toxicants is a single
+environmental record referenced from two entries, not a disease-disease association.
+`kb/comorbidities/` is for co-occurring diseases, and a composite source does not make the
+two moiety poisonings comorbid.
+
+**Test cases.** The rule was checked against the entries the KB already holds.
+`Toxic_Oil_Syndrome` keeps its entry: the syndrome is not aniline poisoning.
+`Methanol_Poisoning` and `Diethylene_Glycol_Poisoning` keep theirs: the toxic species is a
+metabolite with its own mechanism, which is the second row rather than the first.
+`Nerve_Agent_Poisoning` keeps its class-level entry. Lead azide fails every row but the
+first, and gets no entry.
+
+**Still open.**
+
+- Whether `stubs/` should admit a non-MONDO key so that a composite ruled out here can be
+  retired through the normal queue rather than only in this register.
+- Whether azide's second mechanism — oxidation to nitric oxide, causing the hypotension
+  that distinguishes azide from cyanide clinically — earns a module. No module currently
+  covers xenobiotic NO-mediated vasodilation, so `Sodium_Azide_Poisoning` carries that
+  chain entry-local.
+- Whether a `GROUPING` should collect moiety entries that share a composite exposure
+  source. Nothing needs it yet; revisit if a second composite reaches the same shape.
+
+
 ## 4. Ontology constraints
 
 **Decision.** Term validation is restricted to an explicit, curated set of ontologies.
