@@ -48022,6 +48022,7 @@ window.searchData = [
     "phenotypes": [
       "Sensorineural hearing impairment",
       "Profound sensorineural hearing impairment",
+      "Moderate sensorineural hearing impairment",
       "Prelingual sensorineural hearing impairment",
       "Bilateral sensorineural hearing impairment",
       "Congenital sensorineural hearing impairment"
@@ -48035,6 +48036,7 @@ window.searchData = [
     "phenotype_ids": [
       "HP:0000407",
       "HP:0011476",
+      "HP:0008504",
       "HP:0000399",
       "HP:0008619",
       "HP:0008527"
@@ -48057,11 +48059,11 @@ window.searchData = [
     "biochemical": [],
     "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_48.yaml",
     "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_48.html",
-    "num_phenotypes": 5,
+    "num_phenotypes": 6,
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "37",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "6"
   },
   {
@@ -59604,7 +59606,7 @@ window.searchData = [
       "Hematological Disease",
       "Genetic Disease"
     ],
-    "creation_date": null,
+    "creation_date": "2026-01-15T00:00:00Z",
     "updated_date": null,
     "subtypes": [
       "Beta Thalassemia Minor (Trait)",
@@ -59617,6 +59619,7 @@ window.searchData = [
       "Alpha-Globin Chain Excess",
       "Ineffective Erythropoiesis",
       "Chronic Hemolysis",
+      "Hepcidin Suppression",
       "Iron Overload",
       "Fetal Hemoglobin Modulation"
     ],
@@ -59663,7 +59666,9 @@ window.searchData = [
       "Frontal Bossing",
       "Osteoporosis",
       "Short Stature",
-      "Delayed Puberty"
+      "Delayed Puberty",
+      "Leg Ulcers",
+      "Thrombosis"
     ],
     "phenotype_categories": [
       "Hematological",
@@ -59672,7 +59677,8 @@ window.searchData = [
       "Cardiovascular",
       "Skeletal",
       "Growth",
-      "Endocrine"
+      "Endocrine",
+      "Integument"
     ],
     "phenotype_hpo_categories": [
       "Blood",
@@ -59705,7 +59711,9 @@ window.searchData = [
       "HP:0002007",
       "HP:0000939",
       "HP:0004322",
-      "HP:0000823"
+      "HP:0000823",
+      "HP:0200042",
+      "HP:0001977"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -59725,6 +59733,7 @@ window.searchData = [
       "Splenectomy",
       "Allogeneic Hematopoietic Stem Cell Transplantation",
       "Luspatercept",
+      "Mitapivat",
       "Gene Therapy (Betibeglogene Autotemcel)",
       "Genetic Counseling"
     ],
@@ -59740,12 +59749,12 @@ window.searchData = [
     ],
     "source_file": "Beta_Thalassemia.yaml",
     "page_url": "../pages/disorders/Beta_Thalassemia.html",
-    "num_phenotypes": 18,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 20,
+    "num_pathophysiology": 7,
     "num_genes": 4,
-    "num_treatments": 8,
-    "causal_graph_edges": "36",
-    "causal_graph_longest_path": "5"
+    "num_treatments": 9,
+    "causal_graph_edges": "40",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Bethlem myopathy",
@@ -64137,6 +64146,7 @@ window.searchData = [
     "treatments": [
       "Evidence-Based Psychotherapy",
       "Dialectical Behavior Therapy",
+      "Mindful Hypnotherapy",
       "Mentalization-Based Treatment"
     ],
     "environmental": [
@@ -64148,8 +64158,8 @@ window.searchData = [
     "num_phenotypes": 8,
     "num_pathophysiology": 3,
     "num_genes": 0,
-    "num_treatments": 3,
-    "causal_graph_edges": "15",
+    "num_treatments": 4,
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "2"
   },
   {
@@ -141064,7 +141074,8 @@ window.searchData = [
       "Beta-Cell ER Stress Under Proinsulin Folding Load",
       "Loss of Beta-Cell Reserve Against Folding Challenge",
       "Childhood-Onset Insulin-Deficient Diabetes",
-      "Extrapancreatic Neurodevelopmental and Growth Phenotype"
+      "Extrapancreatic Neurodevelopmental and Cochlear Dysfunction",
+      "Extrapancreatic Somatotropic and Skeletal Growth Dysfunction"
     ],
     "cell_types": [
       "pancreatic beta cell"
@@ -141073,7 +141084,6 @@ window.searchData = [
       "CL:0000169"
     ],
     "biological_processes": [
-      "MANF-dependent attenuation of the ER stress response",
       "endoplasmic reticulum unfolded protein response",
       "protein folding in the endoplasmic reticulum"
     ],
@@ -141122,11 +141132,11 @@ window.searchData = [
     "source_file": "Diabetes_Deafness_Developmental_Delay_and_Short_Stature_Syndrome.yaml",
     "page_url": "../pages/disorders/Diabetes_Deafness_Developmental_Delay_and_Short_Stature_Syndrome.html",
     "num_phenotypes": 6,
-    "num_pathophysiology": 6,
+    "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Diabetes mellitus",
@@ -147437,8 +147447,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Distal Hereditary Motor Neuronopathy Type 5B",
@@ -173937,7 +173947,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 1,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "4"
   },
   {
@@ -180205,7 +180215,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 0,
     "num_treatments": 2,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "14",
     "causal_graph_longest_path": "6"
   },
   {
@@ -214477,7 +214487,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -238403,7 +238413,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "4"
   },
   {
@@ -254860,7 +254870,10 @@ window.searchData = [
       "Vertebral compression fracture",
       "Neurological deficit"
     ],
-    "phenotype_categories": [],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurologic"
+    ],
     "phenotype_hpo_categories": [
       "Constitutional",
       "Musculoskeletal",
@@ -254895,8 +254908,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 0,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Kyasanur Forest Disease",
@@ -268355,6 +268368,150 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "39",
     "causal_graph_longest_path": "6"
+  },
+  {
+    "name": "Lymph Node Tuberculosis",
+    "disease_id": "MONDO:0005831",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary tuberculosis"
+    ],
+    "creation_date": "2026-11-27T23:10:15Z",
+    "updated_date": null,
+    "subtypes": [
+      "Peripheral",
+      "Intrathoracic",
+      "Abdominal"
+    ],
+    "description": "Lymph node tuberculosis (tuberculous lymphadenitis; scrofula when it affects the neck) is infection of lymph nodes by the Mycobacterium tuberculosis complex and the most common form of extrapulmonary tuberculosis in low-incidence countries. Bacilli reach the nodes in dendritic cells and macrophages draining a pulmonary or oropharyngeal focus, by later lymphohematogenous spread, or by reactivation of a latent nodal focus. M. tuberculosis causes almost all cases where isolates are typed; M. bovis, acquired from unpasteurized milk, is now a minor cause. Peripheral disease is usually a painless swelling of one group of cervical nodes, most often posterior triangle or supraclavicular, present for one to two months, and mainly affects young adults, women more than men, and in low-incidence countries migrants from high-burden ones. Mediastinal and hilar nodes are the main intrathoracic site, and abdominal (mesenteric, peripancreatic and periportal) nodes are also involved. Inside the node, granulomas disrupt and replace the nodal architecture and undergo caseous necrosis. Untreated disease passes through the five Jones-Campbell stages: discrete reactive nodes, matted nodes fixed by periadenitis, central softening with a cold abscess, a collar-stud abscess, and a draining sinus. Systemic symptoms are common in some high-burden series and uncommon in others, and are more frequent with HIV infection, which also makes node involvement more symmetrical and widespread. Diagnosis rests on fine-needle aspiration with cytology, acid-fast staining, Xpert MTB/RIF and culture, or on excisional biopsy, and nontuberculous mycobacterial lymphadenitis is the main differential in young children. Standard six-month chemotherapy cures most patients, but nodes respond slowly, residual nodes are common, and a paradoxical upgrading reaction (new or enlarging nodes, abscesses or sinuses) occurs in about a fifth of patients during or after treatment. Surgery is mainly used for diagnosis and for troublesome fluctuant or persistent nodes.",
+    "pathophysiology": [
+      "Airborne Mycobacterium tuberculosis Infection",
+      "Oropharyngeal Entry of Ingested Mycobacterium bovis",
+      "Dendritic Cell Transport of Bacilli to Draining Lymph Nodes",
+      "Lymphohematogenous Spread to Peripheral Lymph Nodes",
+      "Reactivation of Latent Nodal Infection",
+      "Mycobacterial Persistence in Lymph Nodes",
+      "Th1 and TNF-Driven Nodal Macrophage Activation",
+      "Nodal Caseating Granuloma Formation",
+      "Caseous Necrosis of the Lymph Node",
+      "Periadenitis and Nodal Matting",
+      "Liquefaction and Cold Abscess Formation",
+      "Capsular Rupture and Sinus Tract Formation",
+      "Systemic Inflammatory Response",
+      "Paradoxical Upgrading Reaction During Treatment"
+    ],
+    "cell_types": [
+      "macrophage",
+      "dendritic cell",
+      "CD4-positive T cell",
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000235",
+      "CL:0000451",
+      "CL:0000624",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "phagocytosis",
+      "dendritic cell migration",
+      "macrophage activation",
+      "interferon-gamma production",
+      "granuloma formation",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Cervical lymphadenopathy",
+      "Supraclavicular lymphadenopathy",
+      "Axillary lymphadenopathy",
+      "Inguinal lymphadenopathy",
+      "Mediastinal lymphadenopathy",
+      "Caseating granulomatosis",
+      "Lymph node necrosis",
+      "Lymph node abscess",
+      "Draining sinus tract in skin",
+      "Skin ulcer",
+      "Fever",
+      "Night sweats",
+      "Weight loss",
+      "Cough",
+      "Fatigue",
+      "Anorexia",
+      "Abdominal pain",
+      "Abdominal distention"
+    ],
+    "phenotype_categories": [
+      "Lymphatic",
+      "Integument",
+      "Constitutional",
+      "Respiratory",
+      "Digestive"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Integument",
+      "Metabolism",
+      "Respiratory",
+      "Thoracic Cavity"
+    ],
+    "phenotype_ids": [
+      "HP:0025289",
+      "HP:0034750",
+      "HP:0034752",
+      "HP:0034751",
+      "HP:0100721",
+      "HP:5210339",
+      "HP:4000149",
+      "HP:0033136",
+      "HP:6000095",
+      "HP:0200042",
+      "HP:0001945",
+      "HP:0030166",
+      "HP:0001824",
+      "HP:0012735",
+      "HP:0012378",
+      "HP:0002039",
+      "HP:0002027",
+      "HP:0003270"
+    ],
+    "frequencies": [
+      "FREQUENT",
+      "OCCASIONAL",
+      "VERY_RARE"
+    ],
+    "genes": [],
+    "treatments": [
+      "Standard Six-Month Antituberculous Chemotherapy",
+      "Nine-Month Rifampicin and Isoniazid Regimen",
+      "Four-Month Ofloxacin-Containing Regimen",
+      "Corticosteroids for Paradoxical Reactions",
+      "Surgical Excision of Affected Nodes",
+      "Aspiration or Incision and Drainage of Fluctuant Nodes"
+    ],
+    "environmental": [
+      "HIV infection and other immunosuppression",
+      "Ingestion of unpasteurized milk",
+      "Birth in or migration from a high-burden country"
+    ],
+    "biochemical": [],
+    "source_file": "Lymph_Node_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Lymph_Node_Tuberculosis.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 14,
+    "num_genes": 0,
+    "num_treatments": 6,
+    "causal_graph_edges": "41",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Lymphangioleiomyomatosis",
@@ -292781,8 +292938,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 26",
@@ -296262,7 +296419,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "13",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -307413,7 +307570,7 @@ window.searchData = [
       "CL:0000333"
     ],
     "biological_processes": [
-      "U2 snRNP tethering to the pre-mRNA branch point",
+      "U2 snRNP recruitment to the pre-mRNA branch point during spliceosomal complex assembly",
       "mRNA splicing, via spliceosome",
       "neural crest cell migration",
       "apoptotic process",
@@ -307482,7 +307639,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -326779,8 +326936,12 @@ window.searchData = [
       "Adult Worm Encapsulation in Subcutaneous Nodules",
       "Onchocercal Lymphadenitis and Lymphatic Fibrosis"
     ],
-    "cell_types": [],
-    "cell_type_ids": [],
+    "cell_types": [
+      "eosinophil"
+    ],
+    "cell_type_ids": [
+      "CL:0000771"
+    ],
     "biological_processes": [
       "inflammatory response",
       "obligate endosymbiosis with Wolbachia"
@@ -340334,6 +340495,7 @@ window.searchData = [
       "CL:0000540"
     ],
     "biological_processes": [
+      "fear response",
       "gamma-aminobutyric acid signaling pathway",
       "serotonin receptor signaling pathway",
       "neuropeptide signaling pathway",
@@ -340381,7 +340543,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 0,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "3"
   },
   {
@@ -359790,8 +359952,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Primary Familial Polycythemia Due to EPO Receptor Mutation",
@@ -380680,6 +380842,8 @@ window.searchData = [
     "description": "Rosai-Dorfman disease (RDD), also called Rosai-Dorfman-Destombes disease or sinus histiocytosis with massive lymphadenopathy (SHML), is a rare non-Langerhans cell histiocytosis placed in the \"R group\" of the 2016 revised histiocytosis classification. It classically presents with massive painless bilateral cervical lymphadenopathy accompanied by fever, leukocytosis, elevated erythrocyte sedimentation rate, and polyclonal hypergammaglobulinemia. Roughly 40 percent of patients have extranodal involvement of skin, central nervous system, bone, sinonasal tract, orbit, or kidney. The diagnostic hallmark is accumulation of large S100-positive, CD68-positive, CD1a-negative histiocytes that exhibit emperipolesis, the active non-destructive engulfment of intact lymphocytes, plasma cells, and erythrocytes within histiocyte cytoplasm. RDD was long regarded as a reactive or immune-dysregulatory process, but the discovery of recurrent activating MAPK-pathway mutations (KRAS, MAP2K1, ARAF, NRAS) in roughly one-third of cases has reframed a substantial subset as a clonal histiocytic neoplasm. Familial RDD is associated with biallelic germline SLC29A3 mutations (SLC29A3 spectrum disorder), and germline FAS (TNFRSF6) mutations link RDD to autoimmune lymphoproliferative syndrome. Disease is often self-limited and regresses spontaneously; symptomatic or extranodal disease is treated with observation, corticosteroids, surgery, immunomodulators, chemotherapy, and, for MAPK-driven or refractory disease, MEK inhibitors such as cobimetinib.",
     "pathophysiology": [
       "MAPK/ERK Pathway Activation",
+      "Germline SLC29A3 (ENT3) Loss of Function",
+      "Germline FAS Death-Receptor Deficiency",
       "Immune Dysregulation and Macrophage Activation",
       "Histiocyte Accumulation with Emperipolesis",
       "Nodal and Extranodal Tissue Infiltration"
@@ -380785,11 +380949,11 @@ window.searchData = [
     "source_file": "Rosai-Dorfman_Disease.yaml",
     "page_url": "../pages/disorders/Rosai-Dorfman_Disease.html",
     "num_phenotypes": 15,
-    "num_pathophysiology": 4,
+    "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Ross River Fever",
@@ -460348,17 +460512,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4224,
-  "total_subtypes": 5189,
-  "total_disorders_and_subtypes": 9413,
-  "total_unique_evidence_sources": 63487,
-  "total_unique_publications": 59310,
+  "total_disorder_pages": 4225,
+  "total_subtypes": 5192,
+  "total_disorders_and_subtypes": 9417,
+  "total_unique_evidence_sources": 63519,
+  "total_unique_publications": 59342,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4222,
-  "total_unique_pathological_events": 27978,
+  "total_pathographs": 4223,
+  "total_unique_pathological_events": 27995,
   "total_modules": 242,
-  "total_research_reports": 4329,
+  "total_research_reports": 4330,
   "total_classifications": 21,
   "total_comorbidities": 58,
   "total_groupings": 160
