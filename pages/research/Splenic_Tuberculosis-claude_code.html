@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splenic Tuberculosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Splenic Tuberculosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Splenic Tuberculosis</h1>
+                
+                <p class="report-subtitle">1. Disease Information</p>
+                
+                
+                <div class="report-date">2026-11-27</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005967" target="_blank" rel="noopener noreferrer">MONDO:0005967</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">41 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h2>1. Disease Information</h2>
+<p><strong>Overview.</strong> Splenic TB is a rare form of extrapulmonary TB that usually results from blood-borne spread (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12519452/">Liu P et al., Front Med 2025, PMID 41098981</a>).
+- Splenic involvement is usually part of miliary TB. Among organs involved in miliary disease, the spleen ranks third after lung and liver.
+- Isolated (solitary) splenic TB is uncommon. It is seen mostly in immunosuppressed people, especially those with HIV, but it is also reported in immunocompetent people (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4888408/">Lin SF et al., World J Surg Oncol 2016, PMID 27250119</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11196969/">Ranjan R et al., Cureus 2024, PMID 38919240</a>).
+- Most of the evidence comes from case reports. A 2018 review notes that "a consensus statement based on the available case reports is lacking" (<a href="https://pesquisa.bvsalud.org/ses/resource/pt/mdl-30426945">Pol Przegl Chir 2018;90(5):49-51, PMID 30426945</a>).</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005967" target="_blank" rel="noopener noreferrer">MONDO:0005967</a> ("infection of the spleen with mycobacteria")</td>
+<td><a href="https://ncbi.nlm.nih.gov/medgen/11949">MedGen UID 11949</a></td>
+</tr>
+<tr>
+<td>Disease Ontology</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_9305" target="_blank" rel="noopener noreferrer">DOID:9305</a> (cross-reference to ICD10CM A18.85)</td>
+<td><a href="https://www.informatics.jax.org/disease/DOID:9305">MGI/DO</a></td>
+</tr>
+<tr>
+<td>ICD-10-CM</td>
+<td>A18.85 "Tuberculosis of spleen" (billable; in the code set since Oct 2015)</td>
+<td><a href="https://icdlist.com/icd-10/A1885">icdlist</a>; <a href="https://www.unboundmedicine.com/icd/view/ICD-10-CM/891844/all/A18_85___Tuberculosis_of_spleen">unboundmedicine</a></td>
+</tr>
+<tr>
+<td>WHO ICD-10</td>
+<td>A18.8 "Tuberculosis of other specified organs" (broader category)</td>
+<td><a href="https://gesund.bund.de/en/icd-code-suche/a18-8">gesund.bund.de</a></td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>28399005 "Tuberculosis of spleen" (maps to A18.8)</td>
+<td><a href="https://art-decor.org/terminology/snomed/viewConcept/28399005">ART-DECOR</a></td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>"Tuberculosis, Splenic", record D014400 (returned for this query; confirm in MeSH)</td>
+<td><a href="https://meshb.nlm.nih.gov/record/ui?ui=D014400">MeSH</a></td>
+</tr>
+<tr>
+<td>OMIM / Orphanet</td>
+<td>Not applicable or not found (not a Mendelian disorder)</td>
+<td>—</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>Not retrieved</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> tuberculosis of spleen; splenic TB; tuberculous splenitis; solitary or isolated splenic tuberculosis (isolated form); tuberculous splenic abscess (abscess form); hepatosplenic tuberculosis (combined form, <a href="https://radiopaedia.org/articles/27652">Radiopaedia</a>).</p>
+<p><strong>Type of evidence:</strong> Aggregated disease-level resources (ontologies) plus individual-patient case reports and small case series.</p>
+<h2>2. Etiology</h2>
+<p><strong>Causal factor (infectious):</strong> <em>Mycobacterium tuberculosis</em> complex. The spleen is seeded mostly by blood-borne spread from a primary focus, usually in the lung (<a href="https://pubmed.ncbi.nlm.nih.gov/41098981/" target="_blank" rel="noopener noreferrer">PMID 41098981</a>). <em>M. bovis</em> also causes spleen lesions in animals (Section 14).</p>
+<p><strong>Risk factors (human clinical evidence)</strong></p>
+<ul>
+<li><strong>HIV and advanced immunosuppression</strong> (strongest risk factor).</li>
+<li>Splenic involvement "is more common in patients with HIV and in disseminated disease" (paraphrase of the Dixit R et al. abstract, Indian J Tuberc 2010;57:25-30, <a href="https://pubmed.ncbi.nlm.nih.gov/20420041/" target="_blank" rel="noopener noreferrer">PMID 20420041</a>; <a href="https://search.bvsalud.org/gim/resource/en/sea-146832">IMSEAR</a>).</li>
+<li>"Up to 70% of the patients with tuberculosis and HIV infection develop extrapulmonary disease" (Salazar A, Enferm Infecc Microbiol Clin 1994, <a href="https://pubmed.ncbi.nlm.nih.gov/8011721/" target="_blank" rel="noopener noreferrer">PMID 8011721</a>).</li>
+<li>Multifocal splenic TB abscesses are described in HIV-infected drug users (Soriano V, AIDS 1991, <a href="https://pubmed.ncbi.nlm.nih.gov/1892601/" target="_blank" rel="noopener noreferrer">PMID 1892601</a>) and in AIDS (Reichel C, Z Gastroenterol 1996, <a href="https://pubmed.ncbi.nlm.nih.gov/8794544/" target="_blank" rel="noopener noreferrer">PMID 8794544</a>).</li>
+<li>Splenic TB has been reported with newly diagnosed advanced HIV (Tiri B, IDCases 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/27635384/" target="_blank" rel="noopener noreferrer">PMID 27635384</a>).</li>
+<li><strong>TNF-α blockade.</strong></li>
+<li>Keane et al. reported 70 TB cases after infliximab, after a median of 12 weeks of treatment. Forty had extrapulmonary disease, 17 of them disseminated (<a href="https://searchworks.jioinstitute.edu.in/articles/cmedm__11596589">NEJM 2001;345:1098, PMID 11596589</a>; PMID taken from the MEDLINE accession).</li>
+<li>Hepatic and splenic TB after infliximab for ulcerative colitis has been reported (Chen S, BMC Gastroenterol 2026, <a href="https://pubmed.ncbi.nlm.nih.gov/42464147/" target="_blank" rel="noopener noreferrer">PMID 42464147</a>).</li>
+<li><strong>Other immunosuppression.</strong> Immunodeficiency is described as "an important risk factor for splenic tuberculosis" in case literature (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5806411">PMC5806411</a>). Diabetes and other comorbidities are mentioned in case series but were not quantified in what I retrieved.</li>
+<li><strong>Geography:</strong> Living in or coming from a high-burden TB setting. Most series come from India and sub-Saharan Africa.</li>
+<li><strong>Age:</strong> Childhood. Splenic TB is described in children, including immunocompetent children (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6758994/">PMC6758994</a>; <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC11788734/">PMC11788734</a>). Abdominal TB in children is reviewed in Raj V, Pediatr Surg Int 2025 (<a href="https://pubmed.ncbi.nlm.nih.gov/40533676/" target="_blank" rel="noopener noreferrer">PMID 40533676</a>).</li>
+</ul>
+<p><strong>Genetic risk factors (host; inferred to apply to disseminated mycobacterial disease generally, not shown specifically for the spleen)</strong>
+- Mendelian susceptibility to mycobacterial disease (MSMD) involves inborn errors of IFN-γ immunity.
+  - Genes include IFNGR1, IFNGR2, IL12B, IL12RB1, IL12RB2, IL23R, STAT1, JAK1, IRF8, SPPL2A, ISG15, TYK2, RORC, CYBB and NEMO (IKBKG).
+  - Homozygosity for <strong>TYK2 P1104A</strong> is a common-variant cause of TB with "incomplete, and probably low" penetrance (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7275902">Bustamante J, PMID 32025907, PMC7275902</a>).
+  - Further overviews: <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10676692/">Errami &amp; Bousfiha 2023, PMC10676692</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/40656276/" target="_blank" rel="noopener noreferrer">PMID 40656276</a>.
+- No splenic-TB-specific GWAS hits, ClinVar entries or ClinGen curations were found.</p>
+<p><strong>Protective factors</strong>
+- <strong>BCG vaccination</strong> protects strongly against disseminated (miliary) childhood TB, the form that usually involves the spleen.
+  - Mangtani et al. (Clin Infect Dis 2014): RR 0.1 (95% CI 0.01–0.77) for meningeal or miliary TB in infants.
+  - Trunz et al. (Lancet 2006): one miliary case prevented per 9,314 vaccinations (<a href="https://researchonline.lshtm.ac.uk/1440348">UCL/LSHTM summaries</a>). PMIDs for both were not retrieved.
+- <strong>Antiretroviral therapy and immune restoration:</strong> inferred to be protective; no splenic-specific data retrieved.
+- <strong>TB preventive treatment</strong> before anti-TNF therapy: Keane 2001 recommends screening (<a href="https://pubmed.ncbi.nlm.nih.gov/11596589/" target="_blank" rel="noopener noreferrer">PMID 11596589</a>).
+- Genetic protective alleles: none identified.</p>
+<p><strong>Gene–environment interaction:</strong> Host IFN-γ/IL-12 pathway defects (genetic) or HIV/TNF blockade (acquired) combine with exposure to <em>M. tuberculosis</em> (environmental) to allow blood-borne spread. This is inferred from the MSMD and anti-TNF literature, not demonstrated for the spleen.</p>
+<h2>3. Phenotypes</h2>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>Type</th>
+<th>Suggested HPO label (ID to verify)</th>
+<th>Frequency / notes</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever</td>
+<td>Symptom</td>
+<td>Fever</td>
+<td>82.3% in a pooled review of isolated splenic TB</td>
+<td>Lin 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/27250119/" target="_blank" rel="noopener noreferrer">PMID 27250119</a> (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4888408/">PMC4888408</a>)</td>
+</tr>
+<tr>
+<td>Fatigue / malaise</td>
+<td>Symptom</td>
+<td>Fatigue</td>
+<td>44.1% (grouped with weight loss)</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27250119/" target="_blank" rel="noopener noreferrer">PMID 27250119</a></td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td>Symptom</td>
+<td>Weight loss</td>
+<td>44.1%</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27250119/" target="_blank" rel="noopener noreferrer">PMID 27250119</a></td>
+</tr>
+<tr>
+<td>Splenomegaly</td>
+<td>Sign</td>
+<td>Splenomegaly</td>
+<td>13.2–100% depending on series. All 23 patients in Sharma's series had splenomegaly (an entry criterion). TB lesions "most often occur with splenomegaly"</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/27250119/" target="_blank" rel="noopener noreferrer">PMID 27250119</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/16554586/" target="_blank" rel="noopener noreferrer">PMID 16554586</a></td>
+</tr>
+<tr>
+<td>Left upper quadrant / abdominal pain</td>
+<td>Symptom</td>
+<td>Abdominal pain</td>
+<td>Common in case reports; not quantified</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41098981/" target="_blank" rel="noopener noreferrer">PMID 41098981</a></td>
+</tr>
+<tr>
+<td>Focal hypoechoic or hypodense splenic lesions (micro- or macronodular)</td>
+<td>Imaging finding</td>
+<td>Abnormality of the spleen (finer splenic-lesion term to verify)</td>
+<td>Most common ultrasound/CT pattern</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a></td>
+</tr>
+<tr>
+<td>Splenic abscess</td>
+<td>Sign / imaging</td>
+<td>Splenic abscess (verify term)</td>
+<td>Second most common pattern</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a></td>
+</tr>
+<tr>
+<td>Splenic calcification</td>
+<td>Imaging (late or healed lesions)</td>
+<td>Splenic calcification</td>
+<td>On CT</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a></td>
+</tr>
+<tr>
+<td>Lymphadenopathy (abdominal or other)</td>
+<td>Sign</td>
+<td>Lymphadenopathy</td>
+<td>Frequent; mimics lymphoma</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/41098981/" target="_blank" rel="noopener noreferrer">PMID 41098981</a></td>
+</tr>
+<tr>
+<td>Hepatomegaly / hepatic lesions</td>
+<td>Sign</td>
+<td>Hepatomegaly</td>
+<td>In the hepatosplenic form</td>
+<td><a href="https://radiopaedia.org/articles/27652">Radiopaedia</a></td>
+</tr>
+<tr>
+<td>Night sweats, anorexia</td>
+<td>Symptom</td>
+<td>Night sweats; Anorexia</td>
+<td>Constitutional symptoms; not quantified</td>
+<td>general literature (not quantified)</td>
+</tr>
+<tr>
+<td>Anemia, raised ESR or CRP, cytopenias</td>
+<td>Laboratory</td>
+<td>Anemia; Elevated erythrocyte sedimentation rate</td>
+<td>Reported in cases; not quantified</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Splenic rupture / haemoperitoneum</td>
+<td>Complication</td>
+<td>Splenic rupture</td>
+<td>Rare; led to emergency splenectomy</td>
+<td><a href="https://pubmed.ncbi.nlm.nih.gov/38919240/" target="_blank" rel="noopener noreferrer">PMID 38919240</a></td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Onset:</strong> Mostly young and middle-aged adults; also children.</li>
+<li><strong>Course:</strong> Subacute to chronic (weeks to months), progressive without treatment.</li>
+<li><strong>Severity:</strong> Variable.</li>
+<li><strong>Quality of life:</strong> No EQ-5D or SF-36 data specific to splenic TB were found.</li>
+</ul>
+<h2>4. Genetic/Molecular Information</h2>
+<ul>
+<li><strong>Causal human genes:</strong> None (infectious disease). Not applicable: pathogenic variants, ACMG classification, allele frequency, somatic vs germline origin, chromosomal abnormalities, and disease-specific epigenetic data.</li>
+<li><strong>Host susceptibility genes (modifiers):</strong> The MSMD genes listed in Section 2.</li>
+<li>Loss of function in the IL-12/IL-23–IFN-γ axis, mostly autosomal recessive (<a href="https://pubmed.ncbi.nlm.nih.gov/32025907/" target="_blank" rel="noopener noreferrer">PMID 32025907</a>).</li>
+<li>TYK2 P1104A is a missense, partial loss-of-function variant with impaired IL-23 signalling (<a href="https://pubmed.ncbi.nlm.nih.gov/32025907/" target="_blank" rel="noopener noreferrer">PMID 32025907</a>).</li>
+<li>IL12RB1 (~44%) and IFNGR1 (~17%) are the most frequently reported MSMD defects (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10676692/">PMC10676692</a>).</li>
+<li><strong>Pathogen genetics:</strong> Drug-resistance mutations (for example, the rpoB rifampicin-resistance region detected by Xpert MTB/RIF) are relevant to treatment. An Xpert-positive splenic aspirate has been reported (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7920217">PMC7920217</a>). No splenic-specific pathogen lineage data were retrieved.</li>
+</ul>
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agent:</strong> <em>Mycobacterium tuberculosis</em> (NCBI Taxon to verify). <em>M. bovis</em> also causes spleen lesions (zoonotic).</li>
+<li>Co-infection with <em>M. fortuitum</em> in splenic abscesses has been reported in HIV (Soto-Arquíñigo L 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/29177396/" target="_blank" rel="noopener noreferrer">PMID 29177396</a>).</li>
+<li><strong>Lifestyle and environment:</strong> Injecting drug use with HIV (<a href="https://pubmed.ncbi.nlm.nih.gov/1892601/" target="_blank" rel="noopener noreferrer">PMID 1892601</a>), crowding, and living in an endemic area. Smoking, alcohol and malnutrition are general TB risk factors not specifically quantified for splenic TB in retrieved sources.</li>
+<li><strong>Iatrogenic:</strong> Anti-TNF biologics (PMIDs 11596589, 42464147).</li>
+</ul>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Ordered causal chain</strong></p>
+<ol>
+<li>Inhaling <em>M. tuberculosis</em> droplet nuclei <strong>leads to</strong> infection of alveolar macrophages (CL: alveolar macrophage) and a primary focus in the lung.</li>
+<li>Bacilli spreading through lymph and blood (early primary infection, or reactivation) <strong>results in</strong> bacteraemic seeding of reticuloendothelial organs. The spleen is commonly seeded in miliary TB because of its blood-filtering red pulp and resident macrophages. This anatomical rationale is inferred from the spleen's role; that the spleen ranks after lung and liver is shown in case literature (<a href="https://pubmed.ncbi.nlm.nih.gov/41098981/" target="_blank" rel="noopener noreferrer">PMID 41098981</a>).</li>
+<li>In mice, spread from lung to spleen and liver generally occurs 11–14 days after aerosol infection. Its rate depends on host genetics (C57BL/6 vs C3H) (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC128141">PMC128141</a>; model-organism evidence).</li>
+<li>Splenic macrophages taking up bacilli <strong>lead to</strong> innate inflammatory signalling, then recruitment of T cells. IFN-γ (Th1) activation of macrophages, together with TNF-α, <strong>drives</strong> granuloma formation. "TNF-α and IFN-γ are particularly important in promoting the formation and function of the granuloma" (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2016.00434">Frontiers Immunol 2016</a>).</li>
+<li><strong>Branch A, effective immunity:</strong> Contained epithelioid granulomas <strong>result in</strong> small micronodules that may heal with <strong>calcification</strong> (calcified splenic foci, <a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>).</li>
+<li><strong>Branch B, defective immunity</strong> (HIV CD4 depletion, TNF blockade, MSMD gene defects): weak granulomas <strong>lead to</strong> uncontrolled bacillary growth, many microabscesses and miliary lesions. In HIV, 88.3% of splenic microabscesses seen on ultrasound were TB (<a href="https://pubmed.ncbi.nlm.nih.gov/31456550/" target="_blank" rel="noopener noreferrer">PMID 31456550</a>).</li>
+<li><strong>Branch C, dysregulated hyperinflammation:</strong> Excess TNF and strong T-cell immunity <strong>lead to</strong> macrophage necrosis and release of bacilli outside the cells (Pagán &amp; Ramakrishnan, <a href="https://pubmed.ncbi.nlm.nih.gov/25377142/" target="_blank" rel="noopener noreferrer">PMID 25377142</a>). This <strong>results in</strong> caseous necrosis, which merges into <strong>macronodules or a tuberculous ("cold") abscess</strong> (<a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5566777">PMC5566777</a>).</li>
+<li>Tissue destruction and splenic enlargement <strong>lead to</strong> splenomegaly and LUQ pain. Rarely, the capsule gives way and the spleen <strong>ruptures</strong>, causing haemoperitoneum (<a href="https://pubmed.ncbi.nlm.nih.gov/38919240/" target="_blank" rel="noopener noreferrer">PMID 38919240</a>). Systemic cytokines (TNF, IL-6; inferred) <strong>cause</strong> fever, weight loss and fatigue.</li>
+</ol>
+<p><strong>Checklist detail</strong></p>
+<ul>
+<li><strong>Pathways:</strong> IL-12/IL-23–IFN-γ–STAT1 axis (<a href="https://pubmed.ncbi.nlm.nih.gov/32025907/" target="_blank" rel="noopener noreferrer">PMID 32025907</a>); TNF signalling; IL-10 as a negative regulator (<a href="https://www.frontiersin.org/articles/10.3389/fimmu.2016.00434">Frontiers Immunol 2016</a>).</li>
+<li><strong>Cellular processes:</strong> macrophage phagocytosis, failure of phagosome maturation, necrosis, granuloma formation. Caseous granulomas are "formed by epithelioid macrophages surrounding a cellular necrotic region with a rim of lymphocytes".</li>
+<li><strong>Immune system:</strong> cell-mediated immunity is central; its failure (HIV) is linked to disseminated and splenic disease.</li>
+<li><strong>Suggested GO terms (labels, IDs to verify):</strong> granuloma formation; defense response to Gram-positive bacterium / response to bacterium; type II interferon (IFN-γ)-mediated signaling pathway; tumor necrosis factor-mediated signaling pathway; phagocytosis; necrotic cell death; macrophage activation.</li>
+<li><strong>Suggested CL terms (labels):</strong> macrophage; splenic macrophage / red pulp macrophage; epithelioid cell; multinucleate giant cell (Langhans); CD4-positive alpha-beta T cell; B cell.</li>
+<li><strong>Molecular profiling:</strong> No splenic-TB-specific transcriptomic, proteomic, metabolomic, single-cell or spatial datasets were identified in this search. General TB blood signatures exist but were not retrieved here.</li>
+</ul>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> spleen (UBERON label: spleen), including red pulp and white pulp.</li>
+<li><strong>Secondary organs:</strong></li>
+<li>liver (hepatosplenic TB), abdominal lymph nodes, lung, peritoneum;</li>
+<li>bone marrow in disseminated disease (inferred).</li>
+<li><strong>Body systems:</strong> hematopoietic/lymphoid (immune) system, digestive and abdominal cavity, respiratory.</li>
+<li><strong>Tissue and cells:</strong> lymphoid tissue; granulomatous inflammation with caseous necrosis; macrophages, epithelioid cells, Langhans giant cells, T and B lymphocytes.</li>
+<li><strong>Subcellular (GO Cellular Component labels):</strong> phagosome; phagolysosome / lysosome (bacilli persist in the phagosome); cytoplasm of macrophages.</li>
+<li><strong>Lateralization:</strong> Left upper quadrant (the spleen is a single left-sided organ). Lesions within the spleen are solitary or multiple and diffuse.</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> Subacute or insidious, with weeks to months of fever and weight loss. Occasionally acute, from abscess rupture (<a href="https://pubmed.ncbi.nlm.nih.gov/38919240/" target="_blank" rel="noopener noreferrer">PMID 38919240</a>). Occurs in children and adults.</li>
+<li><strong>Morphological stages (imaging and pathology):</strong></li>
+<li>miliary micronodules (&lt;2 cm) → macronodules or confluent lesions → abscess → healing with calcification (<a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>; <a href="https://radiopaedia.org/articles/27652">Radiopaedia</a>);</li>
+<li>on MRI, lesions tend to be "small and multiple" and "most often occur with splenomegaly" (De Backer AI et al., AJR 2006, <a href="https://pubmed.ncbi.nlm.nih.gov/16554586/" target="_blank" rel="noopener noreferrer">PMID 16554586</a>).</li>
+<li><strong>Course:</strong> Progressive and potentially fatal without treatment. Treatment usually leads to remission; lesions shrink on ultrasound follow-up, which Sharma et al. propose for monitoring response (<a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>).</li>
+<li><strong>Critical windows:</strong></li>
+<li>early in anti-TNF therapy (median 12 weeks; <a href="https://pubmed.ncbi.nlm.nih.gov/11596589/" target="_blank" rel="noopener noreferrer">PMID 11596589</a>);</li>
+<li>advanced HIV (low CD4).</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Inheritance:</strong> Not applicable (acquired infection). MSMD predisposition is mostly autosomal recessive (Section 4).</li>
+<li><strong>Epidemiology:</strong></li>
+<li>Population-level splenic TB incidence or prevalence is <strong>not available</strong>.</li>
+<li>WHO 2025 report: 16% of TB notifications in 2024 were extrapulmonary (<a href="https://www.who.int/teams/global-programme-on-tuberculosis-and-lung-health/tb-reports/global-tuberculosis-report-2025/tb-diagnosis-and-treatment/2-1-case-notifications">WHO GTB 2025</a>).</li>
+<li>Splenic TB was found in 4–12% of patients who underwent diagnostic splenectomy in one cited series (secondary citation in <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4888408/">PMC4888408</a>).</li>
+<li>In HIV-positive patients, ultrasound showed splenic lesions in 21.0% (95% CI 10.6–33.8) across 5 studies with 774 patients (Schafer JM et al., S Afr Med J 2019;109:570-6, <a href="https://pubmed.ncbi.nlm.nih.gov/31456550/" target="_blank" rel="noopener noreferrer">PMID 31456550</a>).</li>
+<li><strong>Geography:</strong> High TB-burden regions (South Asia, sub-Saharan Africa). Major series come from India (PMIDs 17642503, 20420041).</li>
+<li><strong>Sex ratio and age distribution:</strong> No robust data retrieved. A 2026 systematic review (Chaudhary P, J Glob Infect Dis, <a href="https://pubmed.ncbi.nlm.nih.gov/41958487/" target="_blank" rel="noopener noreferrer">PMID 41958487</a>) covers epidemiology, but its full text or abstract could not be retrieved.</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<p><strong>Imaging</strong></p>
+<ul>
+<li><strong>Ultrasound:</strong> In the Sharma series of 23 patients, the findings in descending order were "single or multiple hypoechoic focal lesions, splenic abscess, calcifications (on CT) and isolated splenomegaly". In 5 of 6 patients whose only ultrasound finding was splenomegaly, CT showed lesions. The authors call ultrasound affordable, non-invasive and useful for following treatment response (<a href="https://pubmed.ncbi.nlm.nih.gov/17642503/" target="_blank" rel="noopener noreferrer">PMID 17642503</a>; <a href="https://ijmr.org.in/radiological-manifestations-of-splenic-tuberculosis-a-23-patient-case-series-from-india/">IJMR</a>).</li>
+<li><strong>CT:</strong> Multiple well-defined, hypodense round lesions (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12033969/">Zapata Naranjo, Cureus 2025, PMID 40291232</a>). Imaging features of splenic infections are largely non-specific (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC8160561">Abdom Radiol 2021, PMC8160561</a>).</li>
+<li><strong>MRI:</strong> Small, multiple lesions, usually with splenomegaly (<a href="https://pubmed.ncbi.nlm.nih.gov/16554586/" target="_blank" rel="noopener noreferrer">PMID 16554586</a>).</li>
+<li><strong>FDG-PET/CT:</strong> Isolated splenic TB has been detected only on FDG-PET (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6159193/">PMC6159193</a>). PET does not distinguish TB from lymphoma.</li>
+<li><strong>FASH protocol:</strong> Focused Assessment with Sonography for HIV-associated TB looks for splenic microabscesses (<a href="https://www.acep.org/sonoguide/advanced/fash">ACEP</a>). In HIV, 88.3% (95% CI 72.3–97.9) of splenic microabscesses on ultrasound were TB, and the authors suggest this is "probably sufficient indication to initiate TB treatment prior to obtaining culture data" (<a href="https://pubmed.ncbi.nlm.nih.gov/31456550/" target="_blank" rel="noopener noreferrer">PMID 31456550</a>).</li>
+</ul>
+<p><strong>Microbiology and pathology</strong></p>
+<ul>
+<li><strong>Sampling:</strong> Image-guided fine-needle aspiration (FNA), core biopsy, or splenectomy specimen. FNA is safer, while core biopsy is more accurate (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5566777">PMC5566777</a>; <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3948145">PMC3948145</a>).</li>
+<li><strong>Tests on the sample:</strong> AFB smear (Ziehl–Neelsen), mycobacterial culture, Xpert MTB/RIF. AFB smear and Xpert were positive on a splenic aspirate in one series (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7920217">PMC7920217</a>).</li>
+<li><strong>Histology:</strong> caseating epithelioid granulomas with Langhans giant cells.</li>
+<li><strong>Post-splenectomy diagnosis:</strong> "the definitive diagnosis is essentially formulated on the post-splenectomy specimen" in many reports (<a href="https://pubmed.ncbi.nlm.nih.gov/30426945/" target="_blank" rel="noopener noreferrer">PMID 30426945</a>).</li>
+</ul>
+<p><strong>Ancillary tests:</strong> HIV testing; IGRA or tuberculin skin test (supportive only); chest imaging; sputum testing for a concurrent pulmonary focus; urine LF-LAM in advanced HIV (general TB practice; not retrieved specifically for splenic TB).</p>
+<p><strong>Genetic testing:</strong> Not used for diagnosis. Consider an MSMD gene panel or exome sequencing (IL12RB1, IFNGR1 and others) only in children with disseminated or recurrent mycobacterial disease without an acquired cause (inferred from <a href="https://pubmed.ncbi.nlm.nih.gov/32025907/" target="_blank" rel="noopener noreferrer">PMID 32025907</a>).</p>
+<p><strong>Omics-based diagnostics:</strong> None validated for splenic TB.</p>
+<p><strong>Differential diagnosis:</strong>
+- <strong>Lymphoma:</strong> the most important mimic, with nodules plus lymphadenopathy (<a href="https://pubmed.ncbi.nlm.nih.gov/41098981/" target="_blank" rel="noopener noreferrer">PMID 41098981</a>).
+- <strong>Pyogenic splenic abscess:</strong> shorter illness, bacterial cultures.
+- <strong>Splenic infarct:</strong> wedge-shaped.
+- <strong>Fungal microabscesses</strong> (candidiasis) in neutropenia.
+- <strong>Others:</strong> sarcoidosis, metastases, histoplasmosis (calcifications), brucellosis, melioidosis, and splenic involvement by Bartonella or nontuberculous mycobacteria (NTM) in HIV (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC5566777">PMC5566777</a>).</p>
+<p><strong>Screening:</strong> No population screening. In people with HIV, point-of-care ultrasound (FASH) is used as targeted case-finding.</p>
+<h2>11. Outcome/Prognosis</h2>
+<ul>
+<li><strong>Mortality:</strong> No splenic-TB-specific survival statistics were retrieved. Prognosis with appropriate anti-TB therapy is generally good in case reports. Mortality is driven mostly by co-existing disseminated or HIV-associated disease.</li>
+<li><strong>Complications:</strong> abscess formation, splenic rupture with haemoperitoneum (<a href="https://pubmed.ncbi.nlm.nih.gov/38919240/" target="_blank" rel="noopener noreferrer">PMID 38919240</a>), and spread of disseminated disease. After splenectomy there is a lifelong risk of overwhelming post-splenectomy infection (general surgical knowledge; not retrieved here).</li>
+<li><strong>Prognostic factors (inferred from the case literature):</strong> HIV status, CD4 count, disseminated vs isolated disease, drug resistance, and how fast diagnosis is made.</li>
+<li><strong>Quality of life and disability:</strong> No data.</li>
+</ul>
+<h2>12. Treatment</h2>
+<p><strong>Pharmacotherapy (NCIT labels to verify: Isoniazid, Rifampin, Pyrazinamide, Ethambutol)</strong></p>
+<ul>
+<li><strong>Regimen:</strong> Standard 6-month 2HRZ(E)/4HR, that is, 2 months of isoniazid, rifampicin, pyrazinamide and ethambutol, then 4 months of isoniazid and rifampicin. WHO applies it to extrapulmonary TB except CNS and bone/joint TB, which get longer regimens (<a href="https://tbksp.who.int/en/node/1933">WHO TB KSP node 1933</a>; <a href="https://www.who.int/publications/i/item/9789240048126">WHO Module 4</a>; <a href="https://www.ncbi.nlm.nih.gov/books/NBK613096/">NBK613096</a>).</li>
+<li><strong>Duration in practice:</strong> Many case reports used 6–12 months; no trials specific to splenic TB exist.</li>
+<li><strong>Drug-resistant TB:</strong> follow WHO drug-resistant TB regimens.</li>
+<li><strong>HIV co-infection:</strong> ART coordinated with TB therapy; watch rifampicin drug interactions.</li>
+<li><strong>Mechanisms of action:</strong></li>
+<li>isoniazid: inhibits mycolic acid synthesis via InhA after KatG activation;</li>
+<li>rifampicin: inhibits RNA polymerase (rpoB);</li>
+<li>pyrazinamide: acts against semi-dormant bacilli;</li>
+<li>ethambutol: inhibits arabinosyltransferase.</li>
+<li><strong>Pharmacogenomics:</strong> NAT2 acetylator status affects isoniazid exposure and hepatotoxicity (not retrieved in this session; verify in PharmGKB/CPIC).</li>
+</ul>
+<p><strong>Surgical and interventional (NCIT labels: Splenectomy; Percutaneous Drainage)</strong>
+- Splenectomy plus anti-TB therapy is curative and was historically common. Current opinion reserves it for rupture, failed medical therapy or diagnostic uncertainty (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4888408/">PMC4888408</a>; <a href="https://pubmed.ncbi.nlm.nih.gov/38919240/" target="_blank" rel="noopener noreferrer">PMID 38919240</a>).
+- Percutaneous (pigtail) drainage of tuberculous abscesses works as an adjunct; reported success rates for splenic abscess drainage in general are 67–100% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7920217">PMC7920217</a>).</p>
+<p><strong>Supportive care:</strong> nutrition, analgesia. After splenectomy: vaccination against encapsulated organisms (general practice).</p>
+<p><strong>Advanced therapeutics</strong> (gene, cell, RNA, targeted, immunotherapy): <strong>not applicable</strong>. No splenic-TB clinical trials (NCT IDs) were found.</p>
+<p><strong>Adverse events:</strong> hepatotoxicity (H, R, Z), peripheral neuropathy (H), optic neuritis (E), drug interactions (R). These are general knowledge; FAERS was not queried.</p>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary prevention:</strong></li>
+<li>BCG in infancy, which strongly protects against miliary and disseminated childhood TB (Mangtani 2014 RR 0.1; Trunz 2006; <a href="https://discovery-pp.ucl.ac.uk/id/eprint/1437602/1/bmj.g4643.full.pdf">UCL</a>, <a href="https://researchonline.lshtm.ac.uk/1440348">LSHTM</a>);</li>
+<li>infection control and contact tracing;</li>
+<li>ART for people with HIV.</li>
+<li><strong>Prophylaxis:</strong> screen for latent TB infection and give TB preventive treatment before anti-TNF therapy (<a href="https://pubmed.ncbi.nlm.nih.gov/11596589/" target="_blank" rel="noopener noreferrer">PMID 11596589</a>), and for people with HIV (WHO guidance; not separately retrieved).</li>
+<li><strong>Secondary prevention:</strong> FASH ultrasound in HIV-positive patients with suspected TB (<a href="https://pubmed.ncbi.nlm.nih.gov/31456550/" target="_blank" rel="noopener noreferrer">PMID 31456550</a>); early tissue diagnosis.</li>
+<li><strong>Tertiary prevention:</strong></li>
+<li>complete the full anti-TB course;</li>
+<li>follow-up imaging;</li>
+<li>after splenectomy, vaccines (pneumococcal, meningococcal, Hib) and antibiotic awareness (general practice).</li>
+<li><strong>Genetic counseling:</strong> only for families with MSMD.</li>
+<li><strong>Public health:</strong> WHO End TB strategy; in animals, control of <em>M. bovis</em> in livestock and pasteurisation of milk.</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Species affected:</strong></li>
+<li>Cattle and wildlife with <em>M. bovis</em>. In white-tailed deer (<em>Odocoileus virginianus</em>) in Michigan, gross TB lesions were found in liver, <strong>spleen</strong>, rumen and mammary gland, sites "apparently not previously reported in this species" (<a href="https://bioone.org/journals/journal-of-wildlife-diseases/volume-37/issue-3/0090-3558-37.3.608/Tuberculous-Lesions-in-Free-Ranging-White-Tailed-Deer-in-Michigan/10.7589/0090-3558-37.3.608.full">J Wildl Dis 2001;37:608</a>).</li>
+<li>Spleen-specific frequency data for cattle were not retrieved.</li>
+<li><strong>Zoonotic potential:</strong> <em>M. bovis</em> is transmissible to hunters, processors and others (<a href="https://cwhl.vet.cornell.edu/disease/bovine-tuberculosis">Cornell CWHL</a>). Lesions caused by <em>M. avium</em> subsp. <em>hominissuis</em> can mimic <em>M. bovis</em> in deer (<a href="https://WWW.CDC.GOV/eid/article/26/7/20-0187_article">CDC EID 2020</a>).</li>
+<li><strong>Breeds (VBO), orthologous genes, OMIA:</strong> Not applicable (non-Mendelian).</li>
+<li><strong>Comparative biology:</strong> Caseous granulomas are conserved across mammals. Mice (except C3HeB/FeJ) usually do not form caseous necrosis.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse aerosol infection model</strong> (<em>M. tuberculosis</em> H37Rv/Erdman):</li>
+<li>Spread to the spleen at roughly 11–14 days, with spleen CFU as a standard readout of dissemination (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC128141">PMC128141</a>).</li>
+<li>C57BL/6 (relatively resistant) vs C3H/DBA/2 (susceptible); host genetics affect the rate of dissemination.</li>
+<li><strong>C3HeB/FeJ ("Kramnik") mice</strong> form hypoxic, caseous granulomas that resemble human necrotic lesions, but lung CFU varies widely (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC4457037">PMC4457037</a>; <a href="https://frontiersin.org/journals/immunology/articles/10.3389/fimmu.2024.1427846/pdf">Frontiers 2024</a>).</li>
+<li>BCG protection measured in the spleen varies by strain (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7160682">PMC7160682</a>).</li>
+<li><strong>Genetic models:</strong> Knockouts of Ifng, Ifngr1, Tnf and Il12b in mice model susceptibility to disseminated mycobacterial disease (general knowledge; not retrieved in this session, verify in MGI).</li>
+<li><strong>Zebrafish–<em>M. marinum</em>:</strong> Reveals the mechanism of granuloma formation and TNF-driven necrosis (Pagán &amp; Ramakrishnan, <a href="https://pubmed.ncbi.nlm.nih.gov/25377142/" target="_blank" rel="noopener noreferrer">PMID 25377142</a>).</li>
+<li><strong>Limitations:</strong> No model specifically reproduces <em>isolated</em> splenic TB or splenic abscess. Mouse spleen involvement is part of systemic spread, not a model of the focal human disease.</li>
+<li><strong>Resources:</strong> MGI, ZFIN, IMSR (not queried directly).</li>
+</ul>
+<hr />
+<h3>Key PMIDs (all retrieved in this session)</h3>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>PMIDs</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Splenic TB reviews and series</td>
+<td>30426945, 27250119, 41098981, 41958487, 17642503, 16554586, 20420041, 38919240</td>
+</tr>
+<tr>
+<td>HIV-associated splenic TB</td>
+<td>31456550, 27635384, 8011721, 1892601, 8794544, 29177396</td>
+</tr>
+<tr>
+<td>Iatrogenic (anti-TNF)</td>
+<td>11596589, 42464147</td>
+</tr>
+<tr>
+<td>Imaging review; paediatric abdominal TB</td>
+<td>40291232, 40533676</td>
+</tr>
+<tr>
+<td>Mechanism and host genetics</td>
+<td>25377142, 32025907, 40656276</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Gaps:</strong>
+- incidence and prevalence, sex ratio, and mortality specific to splenic TB;
+- ICD-11 code;
+- ontology numeric IDs (HPO/GO/CL/UBERON/NCIT);
+- PMIDs for the BCG meta-analyses (Mangtani 2014, Trunz 2006) and Ramakrishnan 2012;
+- full abstract of the 2026 systematic review (<a href="https://pubmed.ncbi.nlm.nih.gov/41958487/" target="_blank" rel="noopener noreferrer">PMID 41958487</a>).</p>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>40</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>5</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Quoted claims with nothing to check against</td>
+<td>1</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>40</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>21</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>Every one of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMID:20420041</code> <em>(abstract only)</em>: "is more common in patients with HIV and in disseminated disease"</li>
+<li>closest text in source: "CONCLUSION: The splenic involvement in tuberculosis seems to be more frequent in patients with HIV infection and in disseminated form of disease"</li>
+<li><code>PMID:16554586</code> <em>(abstract only)</em>: "most often occur with splenomegaly"</li>
+<li>closest text in source: "CONCLUSION: Tuberculous focal splenic lesions are small, multiple, and most often associated with splenomegaly"</li>
+</ul>
+<h3>Quotes that could not be checked</h3>
+<p>There was no text to compare these against, so they are neither confirmed nor contradicted:</p>
+<ul>
+<li><code>DOI:10.3389/fimmu.2016.00434</code>: "TNF-α and IFN-γ are particularly important in promoting the formation and function of the granuloma"</li>
+<li>Reference resolved but exposes no abstract or full text to search</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>2 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>MONDO:0005967</code> (2 mentions)</li>
+<li><code>DOID:9305</code> (3 mentions)</li>
+</ul>
+<p>No term could be looked up either way, so nothing here was confirmed or contradicted.</p>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Splenic_Marginal_Zone_Lymphoma-claude_code.html">← Splenic Marginal Zone Lymphoma (Claude Code)</a>
+                
+                
+                <a href="Split_Hand_Foot_Malformation-falcon.html">Split Hand-Foot Malformation (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Splenic_Tuberculosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Splenic_Tuberculosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>

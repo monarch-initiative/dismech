@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miliary Tuberculosis · Claude Code · Deep Research</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin="anonymous">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+                :root {
+            /* Canonical dismech editorial palette — single source of truth.
+               Included by all page templates via Jinja2 include. */
+            --teal: #00838f;
+            --teal-mid: #008c99;
+            --teal-light: #a6ecf2;
+            --teal-50: #e8f6f8;
+            --gray-50: #f9fafb;
+            --gray-100: #f3f4f6;
+            --gray-200: #e5e7eb;
+            --gray-300: #d1d5db;
+            --gray-500: #6b7280;
+            --gray-600: #4b5563;
+            --gray-700: #374151;
+            --gray-800: #1f2937;
+            --gray-900: #111827;
+            --font: 'Lora', Georgia, 'Times New Roman', serif;
+            --mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+            --max-width: 960px;
+            /* Legacy aliases */
+            --primary: var(--teal);
+            --primary-light: #0eb5c3;
+            --primary-dark: #006e79;
+            --secondary: #6366f1;
+            --bg: var(--gray-50);
+            --card-bg: #ffffff;
+            --card: #ffffff;
+            --text: var(--gray-800);
+            --text-muted: var(--gray-600);
+            --border: var(--gray-200);
+            --accent: var(--teal);
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --accent-violet: #8b5cf6;
+            --accent-sky: #0ea5e9;
+            --tree-border: var(--teal-light);
+            --chip-bg: #e0f2fe;
+            --chip-text: #0369a1;
+            --banner-bg: #fef3c7;
+            --banner-border: #f59e0b;
+            --banner-text: #92400e;
+        }
+                /* Reader-facing AI-curation / not-medical-advice disclaimer.
+           Styles the bar emitted by _disclaimer.html.j2. Deliberately neutral
+           (grey, not amber) so it reads as distinct from the pre-alpha
+           ".notice-banner" it may sit alongside. Palette variables carry literal
+           fallbacks so this partial also renders correctly in templates that do
+           not include _palette.css.j2. */
+        .dismech-disclaimer {
+            /* Flex rather than an absolutely positioned button: the dismiss
+               control stays in flow, so it can never overlap the text however
+               the bar wraps on a narrow screen. */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            margin: 0;
+            padding: 10px 16px;
+            background: var(--gray-100, #f3f4f6);
+            color: var(--gray-700, #374151);
+            border-bottom: 1px solid var(--gray-300, #d1d5db);
+            font-family: inherit;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            text-align: center;
+        }
+
+        /* `display: flex` above outranks the UA rule for the `hidden`
+           attribute, so dismissal needs this to actually hide the bar. */
+        .dismech-disclaimer[hidden] {
+            display: none;
+        }
+
+        .dismech-disclaimer p {
+            flex: 1 1 auto;
+            min-width: 0;
+            max-width: var(--max-width, 960px);
+            margin: 0 auto;
+        }
+
+        .dismech-disclaimer strong {
+            color: var(--gray-900, #111827);
+        }
+
+        .dismech-disclaimer a {
+            color: var(--primary, #00838f);
+            text-decoration: underline;
+        }
+
+        /* Hidden until the script confirms it can act on a click, so a reader
+           without JavaScript is never shown a dead control. */
+        .dismech-disclaimer-dismiss {
+            display: none;
+        }
+
+        .dismech-disclaimer.is-dismissible .dismech-disclaimer-dismiss {
+            display: flex;
+            flex: 0 0 auto;
+            /* Clears the Hypothes.is sidebar, which mounts a toolbar over the
+               rightmost ~33px of every page that embeds the annotation client
+               (disorder.html.j2, module.html.j2) and swallows clicks there. The
+               offset is applied on every surface for consistency; it is only
+               whitespace on the pages without the client. Measured in headless
+               Chromium at 1280w: toolbar x 1247-1280, button right edge 44px. */
+            margin-right: 28px;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            border: 0;
+            border-radius: 4px;
+            background: none;
+            color: inherit;
+            font: inherit;
+            font-size: 1.15rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .dismech-disclaimer-dismiss:hover {
+            background: var(--gray-300, #d1d5db);
+        }
+
+        .dismech-disclaimer-dismiss:focus-visible {
+            outline: 2px solid var(--primary, #00838f);
+            outline-offset: 2px;
+        }
+
+        /* The button's footprint (28px wide + 28px clearance) sits only on the
+           right, so the centred text lands about half that left of true centre.
+           Mirroring the footprint fixes it, but costs the same width again — so
+           it is only applied where there is room to spare. Below this, a small
+           optical offset beats losing 56px of text width on a phone. */
+        @media (min-width: 900px) {
+            .dismech-disclaimer.is-dismissible::before {
+                content: "";
+                flex: 0 0 auto;
+                width: 28px;
+                margin-left: 28px;
+            }
+        }
+
+        /* Non-dismissible footer line (_disclaimer_footer.html.j2). The bar can
+           be dismissed for the session; this cannot, so the page never ends up
+           carrying no disclaimer at all. */
+        .dismech-disclaimer-footer {
+            margin-top: 8px;
+            font-size: 0.8rem;
+            color: var(--gray-600, #4b5563);
+        }
+
+        /* `p.` is load-bearing. Both templates that use this partial also define
+           `.page-footer a` (teal, no underline) — equal specificity, but declared
+           thousands of lines later, so it would win. The extra type selector puts
+           this rule ahead of it. */
+        p.dismech-disclaimer-footer a {
+            color: inherit;
+            text-decoration: underline;
+        }
+
+        body {
+            font-family: var(--font);
+            color: var(--gray-800);
+            line-height: 1.7;
+            background:
+                radial-gradient(circle at top right, rgba(166, 236, 242, 0.42), transparent 24%),
+                linear-gradient(180deg, #fff 0%, var(--gray-50) 100%);
+        }
+
+        a {
+            color: var(--teal);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        .layout {
+            max-width: var(--max-width);
+            margin: 0 auto;
+            padding: 1.75rem 1.5rem 4rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(220px, 260px);
+            gap: 1.75rem;
+            align-items: start;
+        }
+
+        .breadcrumb {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+            color: var(--gray-600);
+        }
+
+        .breadcrumb span {
+            color: var(--gray-500);
+        }
+
+        .report-header {
+            border-bottom: 1px solid var(--gray-200);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .report-header h1 {
+            font-size: 1.9rem;
+            font-weight: 700;
+            color: var(--teal);
+            line-height: 1.15;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.4rem;
+        }
+
+        .report-subtitle {
+            font-size: 1.05rem;
+            font-style: italic;
+            color: var(--gray-700);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-date {
+            font-size: 0.82rem;
+            color: var(--gray-500);
+            margin-bottom: 0.5rem;
+        }
+
+        .report-meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--gray-600);
+        }
+
+        .meta-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.22rem 0.6rem;
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 999px;
+            color: var(--gray-700);
+        }
+
+        .meta-chip-prompt code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 0.92em;
+        }
+
+        a.meta-chip-link {
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        a.meta-chip-link:hover {
+            border-color: var(--teal-light);
+            text-decoration: none;
+        }
+
+        .provider-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid var(--teal-light);
+            background: var(--teal-50);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.82rem;
+            color: var(--teal);
+            font-weight: 600;
+        }
+
+        
+        .provider-pill.provider-edison {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        
+        .provider-pill.provider-asta {
+            border-color: #d9f99d;
+            background: #f7fee7;
+            color: #3f6212;
+        }
+        
+        .provider-pill.provider-openai {
+            border-color: #bfdbfe;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        
+        .provider-pill.provider-cyberian {
+            border-color: #fed7aa;
+            background: #fff7ed;
+            color: #9a3412;
+        }
+        
+        .provider-pill.provider-perplexity {
+            border-color: #ddd6fe;
+            background: #f5f3ff;
+            color: #6d28d9;
+        }
+        
+        .provider-pill.provider-claude-code {
+            border-color: #f3c2b3;
+            background: #fdf2ee;
+            color: #b8451f;
+        }
+        
+        .provider-pill.provider-antigravity {
+            border-color: #99f6e4;
+            background: #f0fdfa;
+            color: #0f766e;
+        }
+        
+        .provider-pill.provider-fallback {
+            border-color: #fca5a5;
+            background: #fef2f2;
+            color: #b91c1c;
+        }
+        
+        .provider-pill.provider-openscientist {
+            border-color: #c4b5fd;
+            background: #f5f3ff;
+            color: #5b21b6;
+        }
+        
+        .provider-pill.provider-other {
+            border-color: #d1d5db;
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+
+        .report-body {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1.6rem 1.8rem;
+            overflow-wrap: break-word;
+        }
+
+        .report-body h1,
+        .report-body h2,
+        .report-body h3,
+        .report-body h4 {
+            color: var(--gray-900);
+            line-height: 1.25;
+            margin: 1.4rem 0 0.6rem;
+        }
+
+        .report-body h1 { font-size: 1.5rem; }
+        .report-body h2 { font-size: 1.25rem; }
+        .report-body h3 { font-size: 1.08rem; }
+
+        .report-body h1:first-child,
+        .report-body h2:first-child,
+        .report-body h3:first-child {
+            margin-top: 0;
+        }
+
+        .report-body p,
+        .report-body ul,
+        .report-body ol,
+        .report-body table,
+        .report-body blockquote,
+        .report-body pre {
+            margin-bottom: 1rem;
+        }
+
+        .report-body ul,
+        .report-body ol {
+            padding-left: 1.4rem;
+        }
+
+        .report-body a {
+            word-break: break-word;
+        }
+
+        .report-body table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        .report-body th,
+        .report-body td {
+            border: 1px solid var(--gray-200);
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        .report-body thead {
+            background: var(--teal-50);
+        }
+
+        .report-body pre {
+            background: var(--gray-50);
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            padding: 0.9rem 1rem;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+
+        .report-body code {
+            font-size: 0.9em;
+        }
+
+        .report-body blockquote {
+            border-left: 3px solid var(--teal-light);
+            padding-left: 1rem;
+            color: var(--gray-600);
+        }
+
+        .report-body img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Wide tables are collapsed by default and scroll horizontally when open. */
+        .report-body details.report-table {
+            margin-bottom: 1rem;
+            border: 1px solid var(--gray-200);
+            border-radius: 8px;
+            background: var(--gray-50);
+        }
+
+        .report-body details.report-table > summary {
+            cursor: pointer;
+            padding: 0.55rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--teal);
+            user-select: none;
+        }
+
+        .report-body details.report-table[open] > summary {
+            border-bottom: 1px solid var(--gray-200);
+        }
+
+        .report-body .report-table-scroll {
+            overflow-x: auto;
+            padding: 0.6rem 0.9rem;
+        }
+
+        .report-body details.report-table table {
+            margin-bottom: 0;
+        }
+
+        /* In-text citation links to the reference list. */
+        .report-body a[href^="#ref-"] {
+            color: var(--teal);
+            border-bottom: 1px dotted var(--teal-light);
+        }
+
+        .report-body a[href^="#ref-"]:hover {
+            text-decoration: none;
+            border-bottom-style: solid;
+        }
+
+        /* Keep an anchored reference clear of the sticky nav when jumped to. */
+        .report-body a[id^="ref-"] {
+            scroll-margin-top: 5rem;
+        }
+
+        .sidebar {
+            position: sticky;
+            top: 5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .side-card {
+            background: #fff;
+            border: 1px solid var(--gray-200);
+            border-radius: 12px;
+            box-shadow: 0 6px 30px rgba(17, 24, 39, 0.03);
+            padding: 1rem 1.1rem;
+        }
+
+        .side-card h2 {
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--teal);
+            margin-bottom: 0.7rem;
+        }
+
+        .side-links {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .side-links a {
+            color: var(--gray-700);
+        }
+
+        .side-links a:hover {
+            color: var(--teal);
+        }
+
+        .side-links .current {
+            color: var(--gray-400);
+            font-weight: 600;
+        }
+
+        .side-links .provider-pill {
+            font-size: 0.78rem;
+            padding: 2px 8px;
+        }
+
+        .report-nav {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+        }
+
+        .report-nav a {
+            max-width: 45%;
+        }
+
+        .report-nav .disabled {
+            color: var(--gray-400);
+        }
+
+        @media (max-width: 900px) {
+            .layout {
+                grid-template-columns: 1fr;
+                padding: 1.3rem 1rem 2.5rem;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .report-body {
+                padding: 1.2rem 1.1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    
+<aside class="dismech-disclaimer" aria-label="DisMech disclaimer">
+    <p>
+        <strong>AI-curated research resource &mdash; not medical advice.</strong>
+        DisMech content is generated and maintained by AI curation agents under human
+        review, from publicly accessible literature and curated biomedical knowledge
+        resources. Nothing here is intended to inform medical diagnosis or treatment.
+        <a href="https://dismech.monarchinitiative.org/elements/disclaimer/">Read the full disclaimer</a>.
+    </p>
+    <button type="button" class="dismech-disclaimer-dismiss"
+            aria-label="Dismiss this disclaimer" title="Dismiss this disclaimer">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</aside>
+
+<script>
+    (function () {
+        var KEY = 'dismech-disclaimer-dismissed';
+        var bar = document.querySelector('.dismech-disclaimer');
+        if (!bar) { return; }
+        // sessionStorage access itself throws when storage is blocked (Safari
+        // private browsing, cookies-disabled), so every use is guarded.
+        var store = null;
+        try { store = window.sessionStorage; } catch (err) { store = null; }
+        try {
+            if (store && store.getItem(KEY) === '1') { bar.hidden = true; return; }
+        } catch (err) { /* unreadable storage: show the bar */ }
+        var button = bar.querySelector('.dismech-disclaimer-dismiss');
+        if (!button) { return; }
+        bar.classList.add('is-dismissible');
+        button.addEventListener('click', function () {
+            bar.hidden = true;
+            try { if (store) { store.setItem(KEY, '1'); } } catch (err) { /* not persisted */ }
+            // Focus would otherwise fall back to <body>, losing a keyboard
+            // reader's place. preventScroll keeps the viewport where it was.
+            var next = document.querySelector('main, h1');
+            if (next) {
+                if (!next.hasAttribute('tabindex')) { next.setAttribute('tabindex', '-1'); }
+                try { next.focus({ preventScroll: true }); } catch (err) { next.focus(); }
+            }
+        });
+    })();
+</script>
+    <style>
+    nav.dm-nav { --dm-nav-teal: #00838f; --dm-nav-text: #4b5563; --dm-nav-line: #e5e7eb; --dm-nav-tint: #e8f6f8;
+        position: sticky; top: 0; z-index: 100; padding: 0.75rem 1.5rem; background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px); border-bottom: 1px solid var(--dm-nav-line); font-size: 0.875rem; line-height: 1.4; }
+    .dm-nav-inner { max-width: var(--max-width, 1200px); margin: 0 auto; display: flex; flex-wrap: wrap;
+        align-items: center; justify-content: space-between; gap: 0.5rem 1rem; }
+    .dm-nav a { text-decoration: none; }
+    .dm-nav-logo { display: inline-flex; align-items: center; gap: 0.5rem; font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--dm-nav-teal); }
+    .dm-nav-logo img { height: 1.55rem; width: auto; display: block; }
+    .dm-nav-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1.25rem; margin: 0; padding: 0; list-style: none; }
+    .dm-nav-links > li { position: relative; }
+    .dm-nav-links > li > a, .dm-nav-menu > summary { color: var(--dm-nav-text); cursor: pointer; }
+    .dm-nav-links > li > a:hover, .dm-nav-menu > summary:hover,
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { color: var(--dm-nav-teal); }
+    .dm-nav-links > li > a.active, .dm-nav-menu.active > summary { font-weight: 600; }
+    .dm-nav-menu > summary { list-style: none; user-select: none; }
+    .dm-nav-menu > summary::-webkit-details-marker { display: none; }
+    .dm-nav-menu > summary::after { content: ""; display: inline-block; margin-left: 0.35em; vertical-align: 0.2em;
+        border: 0.3em solid transparent; border-top-color: currentColor; border-bottom: 0; }
+    .dm-nav-menu[open] > summary::after { border-top: 0; border-bottom: 0.3em solid currentColor; }
+    .dm-nav-panel { position: absolute; top: calc(100% + 0.6rem); left: -0.75rem; min-width: 12rem; margin: 0;
+        padding: 0.35rem 0; list-style: none; background: #fff; border: 1px solid var(--dm-nav-line);
+        border-radius: 8px; box-shadow: 0 8px 24px rgba(17, 24, 39, 0.12); }
+    .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { left: auto; right: -0.75rem; }
+    .dm-nav-panel a { display: block; padding: 0.4rem 1rem; color: var(--dm-nav-text); white-space: nowrap; }
+    .dm-nav-panel a:hover, .dm-nav-panel a:focus-visible { background: var(--dm-nav-tint); color: var(--dm-nav-teal); }
+    .dm-nav-panel a.active { color: var(--dm-nav-teal); font-weight: 600; }
+    .dm-nav-gh { display: inline-flex; color: var(--dm-nav-text); }
+    .dm-nav-gh:hover { color: var(--dm-nav-teal); }
+    .dm-nav-gh svg { width: 18px; height: 18px; }
+    @media (max-width: 640px) {
+        nav.dm-nav { padding: 0.6rem 1rem; font-size: 0.84rem; }
+        .dm-nav-links { gap: 0.25rem 0.75rem; }
+        .dm-nav-menu > summary::after { margin-left: 0.25em; }
+        /* Hang the open panel from the whole header (sticky, so it is the
+           containing block) rather than from its button, so it never covers
+           the links and always has the full width to use. */
+        .dm-nav-links > li { position: static; }
+        .dm-nav-panel, .dm-nav-links > li:nth-last-child(-n+3) .dm-nav-panel { top: 100%; left: 1rem; right: 1rem; min-width: 0; }
+    }
+</style>
+<nav class="dm-nav" aria-label="Site">
+    <div class="dm-nav-inner">
+        <a href="../../index.html" class="dm-nav-logo"><img src="../../docs/assets/images/dismech_logo_color.png" alt="" width="605" height="835">DisMech</a>
+        <ul class="dm-nav-links">
+            <li><a href="../../app/index.html">Browse</a></li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Disorders</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/groupings/index.html">Disorder groupings</a></li>
+                        <li><a href="../../pages/classifications/index.html">Classifications</a></li>
+                        <li><a href="../../pages/comorbidities/index.html">Trajectories</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Mechanisms</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/modules/index.html">Modules</a></li>
+                        <li><a href="../../pages/module-collections/index.html">Module collections</a></li>
+                        <li><a href="../../pages/genes/index.html">Genes</a></li>
+                        <li><a href="../../pages/models/index.html">Runnable models</a></li>
+                        <li><a href="../../app/models/index.html">Computational models</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu active">
+                    <summary>Research</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../pages/research/index.html" class="active" aria-current="true">Research reports</a></li>
+                        <li><a href="../../app/discussions/index.html">Discussions</a></li>
+                        <li><a href="../../pages/projects/index.html">Projects</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Data</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../app/embeddings/index.html">Embeddings</a></li>
+                        <li><a href="../../downloads/index.html">Downloads</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li>
+                <details class="dm-nav-menu">
+                    <summary>Docs</summary>
+                    <ul class="dm-nav-panel">
+                        <li><a href="../../details/index.html">Documentation</a></li>
+                        <li><a href="../../contributing/index.html">How to contribute</a></li>
+                        <li><a href="../../elements/index.html">Schema</a></li>
+                    </ul>
+                </details>
+            </li>
+            <li><a href="https://github.com/monarch-initiative/dismech" class="dm-nav-gh" aria-label="DisMech on GitHub" title="DisMech on GitHub"><svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a></li>
+        </ul>
+    </div>
+</nav>
+<script>
+    (function () {
+        var menus = document.querySelectorAll('nav.dm-nav details.dm-nav-menu');
+        function closeAll(except) {
+            for (var i = 0; i < menus.length; i++) { if (menus[i] !== except) { menus[i].open = false; } }
+        }
+        for (var i = 0; i < menus.length; i++) {
+            menus[i].addEventListener('toggle', function (event) { if (event.target.open) { closeAll(event.target); } });
+        }
+        document.addEventListener('click', function (event) {
+            if (!event.target.closest || !event.target.closest('details.dm-nav-menu')) { closeAll(null); }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') { return; }
+            var open = document.querySelector('nav.dm-nav details.dm-nav-menu[open]');
+            if (open) { open.open = false; open.querySelector('summary').focus(); }
+        });
+    })();
+</script>
+
+    <div class="layout">
+        <main>
+            <div class="breadcrumb">
+                <a href="../../index.html">Home</a>
+                <span> / </span>
+                <a href="index.html">Deep Research</a>
+                <span> / </span>
+                <span>Miliary Tuberculosis</span>
+            </div>
+
+            <header class="report-header">
+                <h1>Miliary Tuberculosis</h1>
+                
+                <p class="report-subtitle">Miliary Tuberculosis (MONDO:0005848): Disease Characteristics Report</p>
+                
+                
+                <div class="report-date">2026-11-26</div>
+                
+                <div class="report-meta">
+                    <span class="provider-pill provider-claude-code">Claude Code</span>
+                    
+                    
+                    <a class="meta-chip meta-chip-link" href="http://purl.obolibrary.org/obo/MONDO_0005848" target="_blank" rel="noopener noreferrer">MONDO:0005848</a>
+                    
+                    
+                    
+                    <span class="meta-chip">Model: claude-haiku-5-5, claude-opus-4-8, claude-opus-5-5</span>
+                    
+                    
+                    <span class="meta-chip">44 citations</span>
+                    
+                    
+                    
+                    
+                    <span class="meta-chip meta-chip-prompt"
+                          title="Prompt revision (git blob hash) f452f0a9c7e3536175154b9683c45663f686f283 &#10;Resolve with: git log --find-object=f452f0a9c7e3536175154b9683c45663f686f283 -- templates/">
+                        Prompt:
+                        <a href="https://github.com/monarch-initiative/dismech/blob/main/templates/disease_pathophysiology_research.md" target="_blank" rel="noopener noreferrer">disease_pathophysiology_research.md</a>
+                        <code>f452f0a9c7e3</code>
+                    </span>
+                    
+                </div>
+            </header>
+
+            <article class="report-body">
+                <h1>Miliary Tuberculosis (<a href="http://purl.obolibrary.org/obo/MONDO_0005848" target="_blank" rel="noopener noreferrer">MONDO:0005848</a>): Disease Characteristics Report</h1>
+<p><strong>How this was researched:</strong> Miliary tuberculosis is an infectious disease caused by <em>Mycobacterium tuberculosis</em> complex bacteria. No human causal gene is recorded for it, and none exists in the Mendelian sense. Host genes appear in this report only as susceptibility factors.</p>
+<p>The PubMed E-utilities shell access was denied in this session, so all sources were found by web search. A PMID is given only where a retrieved record showed it. Otherwise the citation is a PMC or other URL. Abstract quotes are reproduced only where search results returned the text. Several template fields have no data for an infectious disease, and those are marked "Not applicable".</p>
+<hr />
+<h2>1. Disease Information</h2>
+<p><strong>Overview.</strong>
+- MeSH defines miliary tuberculosis as "an acute form of tuberculosis in which minute tubercles are formed in a number of organs of the body due to dissemination of the bacilli through the blood stream" (<a href="https://meshb.nlm.nih.gov/record/ui?ui=D014391">MeSH D014391</a>).
+- It results from a "massive lymphohematogenous spread of <em>M. tuberculosis</em>" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3544391">PMC3544391</a>).
+- The name comes from the 1–5 mm lesions, which look like millet seeds (<a href="https://en.wikipedia.com/wiki/Miliary_TB">Wikipedia</a>).
+- It is classified as both pulmonary and extrapulmonary TB (<a href="https://ncbi.nlm.nih.gov/books/NBK562300">StatPearls NBK562300</a>).
+- Untreated, it is almost always fatal. "Untreated miliary TB [has] a fatal outcome within one year" (Sharma &amp; Mohan, Indian J Med Res 2012, <a href="https://pubmed.ncbi.nlm.nih.gov/22771605/">PMID 22771605</a>). See also <a href="https://pubmed.ncbi.nlm.nih.gov/28281441/">PMID 28281441</a>.</p>
+<p><strong>Identifiers</strong></p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>System</th>
+<th>ID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MONDO</td>
+<td><a href="http://purl.obolibrary.org/obo/MONDO_0005848" target="_blank" rel="noopener noreferrer">MONDO:0005848</a>. Parent is extrapulmonary tuberculosis, <a href="http://purl.obolibrary.org/obo/MONDO_0000368" target="_blank" rel="noopener noreferrer">MONDO:0000368</a>; no child terms (<a href="https://conceptlibrary.saildatabank.com/api/v1/ontology/node/MONDO:0005848/">SAIL concept library</a>)</td>
+</tr>
+<tr>
+<td>DOID</td>
+<td><a href="http://purl.obolibrary.org/obo/DOID_9861" target="_blank" rel="noopener noreferrer">DOID:9861</a> (<a href="https://www.informatics.jax.org/disease/DOID:9861">MGI</a>)</td>
+</tr>
+<tr>
+<td>UMLS</td>
+<td>C0041321</td>
+</tr>
+<tr>
+<td>SNOMED CT</td>
+<td>47604008</td>
+</tr>
+<tr>
+<td>ICD-10</td>
+<td>A19. Subcodes: A19.0 single specified site, A19.1 multiple sites, A19.2 unspecified, A19.8 other, A19.9 unspecified (<a href="https://gesund.bund.de/en/icd-code-suche/a19">gesund.bund.de</a>)</td>
+</tr>
+<tr>
+<td>MeSH</td>
+<td>D014391 "Tuberculosis, Miliary"</td>
+</tr>
+<tr>
+<td>ICD-11</td>
+<td>Not verified (1B12.x was not confirmed by search)</td>
+</tr>
+<tr>
+<td>OMIM / Orphanet</td>
+<td>None. This is an infectious disease.</td>
+</tr>
+</tbody>
+</table></div></details>
+<p><strong>Synonyms:</strong> acute miliary tuberculosis; disseminated tuberculosis; generalized (generalised) tuberculosis. In clinical usage, "disseminated TB" is broader than "miliary" and includes non-miliary multi-site disease (<a href="https://pubmed.ncbi.nlm.nih.gov/30819659/">PMID 30819659</a>).</p>
+<p><strong>Data provenance:</strong> The information comes from aggregated disease-level resources (ontologies, reviews and surveillance) and from retrospective hospital and administrative cohorts, such as the Japanese DPC database (<a href="https://pesquisa.bvsalud.org/portal/resource/e/mdl-38636244">PMID 38636244</a>).</p>
+<p><strong>Key reviews</strong>
+- Sharma SK, Mohan A, Sharma A, Mitra DK. <em>Lancet Infect Dis</em> 2005;5:415–30, <a href="https://read.qxmd.com/read/15978528/miliary-tuberculosis-new-insights-into-an-old-disease">PMID 15978528</a>
+- Sharma &amp; Mohan. <em>J Clin Tuberc Other Mycobact Dis</em> 2016, <a href="https://pubmed.ncbi.nlm.nih.gov/31723681/">PMID 31723681</a>
+- Sharma &amp; Mohan. <em>Microbiol Spectr</em> 2017, <a href="https://pubmed.ncbi.nlm.nih.gov/28281441/">PMID 28281441</a></p>
+<h2>2. Etiology</h2>
+<p><strong>Cause.</strong> The disease is caused by infection with <em>M. tuberculosis</em> complex bacteria (NCBITaxon:1773). Zoonotic <em>M. bovis</em> (NCBITaxon:1765) can also cause it. Disease follows hematogenous dissemination, either during primary infection or on reactivation of a latent focus (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3544391">PMC3544391</a>).</p>
+<p><strong>Environmental and host risk factors (human clinical evidence)</strong>
+- A Portuguese cohort of disseminated TB (<a href="https://pubmed.ncbi.nlm.nih.gov/30819659/">PMID 30819659</a>) found these independent predictors:
+  - pharmacological immunosuppression: OR 5.6 (95% CI 2.8–11.3)
+  - HIV infection: OR 5.1 (3.1–8.3)
+  - chronic liver failure or cirrhosis: OR 2.3 (1.4–4.1)
+  - longer symptom duration: OR 2.3 (1.4–3.8)
+- <strong>TNF-α antagonists.</strong> Keane et al. (<em>NEJM</em> 2001;345:1098–1104; <a href="https://pubmed.ncbi.nlm.nih.gov/11596589/" target="_blank" rel="noopener noreferrer">PMID 11596589</a> per <a href="https://searchworks.jioinstitute.edu.in/articles/cmedm__11596589">record</a>) analysed 70 TB cases reported after infliximab.
+  - 40 of the 70 cases were extrapulmonary, and 17 of those were disseminated.
+  - Median onset was 12 weeks after starting treatment, and 48 patients developed TB after three or fewer infusions.
+  - The estimated incidence in rheumatoid arthritis patients on infliximab was over 24 per 100,000, against about 6 per 100,000 without it (<a href="https://www.sciencenews.org/article/anti-inflammatory-drug-may-unleash-tb">Science News</a>).
+- <strong>Corticosteroids.</strong> Inappropriate glucocorticoid use has been linked to unmasking of cryptic miliary TB and to HLH (<a href="https://jidc.org/index.php/journal/article/view/38064397">J Infect Dev Ctries, PMID 38064397</a>).
+- <strong>Age.</strong> Infants and young children are at higher risk (<a href="https://doi.org/10.1186/s12887-023-04427-x">BMC Pediatr 2023</a>). Older adults are also at higher risk (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3544391">PMC3544391</a>).
+- <strong>Smoking</strong> predicted adverse outcome in a West China cohort of 313 patients (<a href="https://doaj.org/article/ba7d65b8e2e54ce1baaa9936dbe00ffc">Ann Med 2024</a>).
+- Diabetes, malnutrition, renal failure and malignancy are cited as classical predisposing conditions in the reviews above. This is review-level evidence, and no specific primary estimates were retrieved for them.</p>
+<p><strong>Genetic risk factors (host susceptibility, not causal genes)</strong>
+- Mendelian susceptibility to mycobacterial disease (MSMD) is caused by inborn errors of IFN-γ immunity and presents with disseminated BCG or environmental mycobacterial disease (<a href="https://pubmed.ncbi.nlm.nih.gov/40656276/">PMID 40656276</a>).
+  - <em>IL12RB1</em> is the most common cause. In one cohort it accounted for 80% of patients, with <em>IFNGR1</em> at 12% (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC7275902">PMC7275902</a>).
+- <strong>TYK2 P1104A (rs34536443) homozygosity</strong>
+  - It "selectively disrupts the induction of IFN-γ by IL-23 and is a common monogenic etiology of tuberculosis" (Boisson-Dupuis et al., <em>Sci Immunol</em> 2018, <a href="https://research.pasteur.fr/en/b/ZUw">PMID 30578352</a>).
+  - In UK Biobank, homozygotes made up 6/620 (1%) of TB patients against 0.2% of controls (OR 5.0). The variant therefore underlies about 1% of TB in people of European ancestry (Kerner et al., <em>PNAS</em> 2019, <a href="https://pubmed.ncbi.nlm.nih.gov/31068474/" target="_blank" rel="noopener noreferrer">PMID 31068474</a>, <a href="https://www.ukbiobank.ac.uk/publications/homozygosity-for-tyk2-p1104a-underlies-tuberculosis-in-about-1-of-patients-in-a-cohort-of-european-ancestry">UK Biobank page</a>).
+  - Penetrance is low for MSMD (probably under 1%) but high for TB in endemic areas (probably over 80%).
+- No GWAS locus specific to miliary TB was retrieved.</p>
+<p><strong>Protective factors</strong>
+- <strong>BCG vaccination in infancy.</strong>
+  - Protection against meningeal and miliary TB is high in infants (RR 0.1, 95% CI 0.01–0.77) and in stringently tuberculin-tested children (RR 0.08, 0.03–0.25) (Mangtani et al., <em>Clin Infect Dis</em> 2014;58:470–80, <a href="https://researchonline.lshtm.ac.uk/1440348">PMID 24336911</a>).
+  - Modelling estimated that infant BCG given in 2002 would prevent about 11,486 miliary TB cases (7,304–16,280) in the first five years of life (Trunz, Fine &amp; Dye, <em>Lancet</em> 2006; PMID not verified).
+- <strong>Genetic protective variants:</strong> none retrieved.</p>
+<p><strong>Gene–environment interaction</strong>
+- Host IFN-γ/IL-12/IL-23 axis defects combined with exposure to mycobacteria lead to disseminated disease (MSMD, TYK2 P1104A).
+- Iatrogenic blockade of the same axis, for example by anti-TNF drugs, produces a similar phenocopy.</p>
+<h2>3. Phenotypes</h2>
+<p>The presentation is "protean and nonspecific", and atypical presentations delay diagnosis (<a href="https://pubmed.ncbi.nlm.nih.gov/31723681/">PMID 31723681</a>). Retrieved frequency data are limited.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Phenotype</th>
+<th>HPO</th>
+<th>Type / notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fever (often prolonged, of unknown origin)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" rel="noopener noreferrer">HP:0001945</a></td>
+<td>Symptom; very common (review-level)</td>
+</tr>
+<tr>
+<td>Weight loss</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" rel="noopener noreferrer">HP:0001824</a></td>
+<td>Symptom</td>
+</tr>
+<tr>
+<td>Cough</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0012735" target="_blank" rel="noopener noreferrer">HP:0012735</a></td>
+<td>Symptom</td>
+</tr>
+<tr>
+<td>Dyspnea</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" rel="noopener noreferrer">HP:0002094</a></td>
+<td>Symptom</td>
+</tr>
+<tr>
+<td>Anorexia / fatigue</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002039" target="_blank" rel="noopener noreferrer">HP:0002039</a> / <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" rel="noopener noreferrer">HP:0012378</a></td>
+<td>Symptom</td>
+</tr>
+<tr>
+<td>Hepatomegaly, splenomegaly</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" rel="noopener noreferrer">HP:0002240</a>, <a href="http://purl.obolibrary.org/obo/HP_0001744" target="_blank" rel="noopener noreferrer">HP:0001744</a></td>
+<td>Sign; among the most common signs in children (<a href="https://doi.org/10.1186/s12887-023-04427-x">BMC Pediatr 2023</a>)</td>
+</tr>
+<tr>
+<td>Lymphadenopathy</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" rel="noopener noreferrer">HP:0002716</a></td>
+<td>Sign; common in children</td>
+</tr>
+<tr>
+<td>Seizures, diarrhea (children)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" rel="noopener noreferrer">HP:0001250</a>, <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" rel="noopener noreferrer">HP:0002014</a></td>
+<td>Pediatric presentation</td>
+</tr>
+<tr>
+<td>Choroid tubercles</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000554" target="_blank" rel="noopener noreferrer">HP:0000554</a> (uveitis; closest available term)</td>
+<td>Sign; described as pathognomonic (<a href="https://pubmed.ncbi.nlm.nih.gov/22771605/">PMID 22771605</a>)</td>
+</tr>
+<tr>
+<td>Diffuse miliary pulmonary nodules (1–5 mm, random distribution)</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033104" target="_blank" rel="noopener noreferrer">HP:0033104</a> (pulmonary nodules; suggested term)</td>
+<td>Imaging; seen in 24/25 patients on HRCT (<a href="https://pubmed.ncbi.nlm.nih.gov/9530383/">PMID 9530383</a>)</td>
+</tr>
+<tr>
+<td>Coexisting tuberculous meningitis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001287" target="_blank" rel="noopener noreferrer">HP:0001287</a> (meningitis)</td>
+<td>About 25% of children and 23% of adults in a Turkish series (<a href="https://dergipark.org.tr/en/download/article-file/61746">dergipark</a>)</td>
+</tr>
+<tr>
+<td>ARDS / respiratory failure</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0033677" target="_blank" rel="noopener noreferrer">HP:0033677</a> (ARDS), <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" rel="noopener noreferrer">HP:0002878</a></td>
+<td>Reported in about 7–18% of cases (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9937678/">PMC9937678</a>)</td>
+</tr>
+<tr>
+<td>Leukocytosis, lymphopenia, raised ALT</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" rel="noopener noreferrer">HP:0001974</a>, <a href="http://purl.obolibrary.org/obo/HP_0001888" target="_blank" rel="noopener noreferrer">HP:0001888</a>, <a href="http://purl.obolibrary.org/obo/HP_0031964" target="_blank" rel="noopener noreferrer">HP:0031964</a></td>
+<td>Laboratory findings; prognostic in the West China cohort</td>
+</tr>
+<tr>
+<td>Hemophagocytic lymphohistiocytosis</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0034287" target="_blank" rel="noopener noreferrer">HP:0034287</a> (suggested term)</td>
+<td>Rare severe complication (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8787627/">PMC8787627</a>)</td>
+</tr>
+<tr>
+<td>Adrenal insufficiency / shock</td>
+<td><a href="http://purl.obolibrary.org/obo/HP_0000846" target="_blank" rel="noopener noreferrer">HP:0000846</a></td>
+<td>Should be suspected in refractory shock (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC10507688">PMC10507688</a>)</td>
+</tr>
+</tbody>
+</table></div></details>
+<ul>
+<li><strong>Onset and course:</strong> subacute over weeks; acute and fulminant forms also occur, such as ARDS presentations.</li>
+<li><strong>Severity:</strong> variable, ranging up to life-threatening.</li>
+<li><strong>Quality of life:</strong> no EQ-5D or SF-36 data specific to miliary TB were found.</li>
+</ul>
+<h2>4. Genetic / Molecular Information</h2>
+<ul>
+<li><strong>Causal genes:</strong> not applicable, because this is an infection.</li>
+<li><strong>Host susceptibility genes:</strong></li>
+</ul>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Gene</th>
+<th>Variant</th>
+<th>Effect</th>
+<th>Inheritance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>IL12RB1</em> (<a href="https://bioregistry.io/HGNC:5971" target="_blank" rel="noopener noreferrer">HGNC:5971</a>)</td>
+<td>Biallelic loss-of-function variants</td>
+<td>Main MSMD gene</td>
+<td>AR</td>
+</tr>
+<tr>
+<td><em>IFNGR1</em> (<a href="https://bioregistry.io/HGNC:5439" target="_blank" rel="noopener noreferrer">HGNC:5439</a>)</td>
+<td>Loss-of-function variants</td>
+<td>MSMD</td>
+<td>AR, or AD dominant-negative</td>
+</tr>
+<tr>
+<td><em>TYK2</em> (<a href="https://bioregistry.io/HGNC:12440" target="_blank" rel="noopener noreferrer">HGNC:12440</a>)</td>
+<td>P1104A missense, catalytically inactive</td>
+<td>Common monogenic TB risk</td>
+<td>AR</td>
+</tr>
+</tbody>
+</table></div></details>
+<p>The table summarises the MSMD reviews cited in section 2 (<a href="https://pubmed.ncbi.nlm.nih.gov/40656276/">PMID 40656276</a>, <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6469360">PMC6469360</a>). All variants are germline. The HGNC IDs come from prior knowledge and were not retrieved in this session, so they need verifying.
+- <strong>Pathogen genes:</strong>
+  - The ESX-1 (RD1) secretion system and ESAT-6 (<em>esxA</em>) drive macrophage recruitment and spread (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC524251">PMC524251</a>).
+  - Variants of the ESX-5 effector EsxM increase macrophage egress from granulomas and dissemination (<a href="https://hal-pasteur.archives-ouvertes.fr/pasteur-03648366/file/pnas.2122161119.pdf">PNAS 2022, HAL</a>).
+- <strong>Epigenetic findings and chromosomal abnormalities:</strong> none specific to miliary TB were found.</p>
+<h2>5. Environmental Information</h2>
+<ul>
+<li><strong>Infectious agents:</strong> <em>M. tuberculosis</em> (NCBITaxon:1773) and <em>M. bovis</em> (NCBITaxon:1765). <em>M. caprae</em>, <em>M. orygis</em>, <em>M. pinnipedii</em> and <em>M. microti</em> can also infect humans (<a href="https://www.cfsph.iastate.edu/Factsheets/pdfs/bovine_tuberculosis.pdf">CFSPH</a>). BCG (<em>M. bovis</em> BCG) causes disseminated disease in people with MSMD.</li>
+<li><strong>Iatrogenic and other exposures:</strong> TNF inhibitors and other immunosuppressants (NCIT "TNF inhibitor"), and corticosteroids. The relevant ChEBI terms are infliximab, CHEBI:… (not retrieved), and glucocorticoid, <a href="http://purl.obolibrary.org/obo/CHEBI_24261" target="_blank" rel="noopener noreferrer">CHEBI:24261</a>.</li>
+<li><strong>Lifestyle:</strong> smoking was associated with adverse outcome (<a href="https://doaj.org/article/ba7d65b8e2e54ce1baaa9936dbe00ffc">Ann Med 2024</a>).</li>
+</ul>
+<h2>6. Mechanism / Pathophysiology</h2>
+<p><strong>Causal chain.</strong> Steps 1–3 are human-clinical; step 4 is from model organisms and is inferred for humans; steps 5–7 are human-clinical.</p>
+<ol>
+<li>Inhaled <em>M. tuberculosis</em> infects alveolar macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>), which <strong>leads to</strong> intracellular replication and an early granuloma.</li>
+<li>ESX-1/ESAT-6 phagosomal damage <strong>results in</strong> recruitment of new macrophages to the granuloma and their infection. This was shown in zebrafish with <em>M. marinum</em> and is inferred for human *M. tuberculosis</li>
+</ol>
+<p>Continuing the report from section 6.</p>
+<h2>6. Mechanism / Pathophysiology (continued)</h2>
+<p><strong>Causal chain</strong> (steps 1–3 human-clinical; step 4 from model organisms, inferred for humans; steps 5–7 human-clinical):</p>
+<ol>
+<li>Inhaled bacilli infect alveolar macrophages (<a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>) → intracellular replication and early granuloma formation.</li>
+<li>The ESX-1 secretion system and ESAT-6 damage the phagosome → recruitment and infection of additional macrophages (Volkman et al., <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC524251">PMC524251</a>; Davis &amp; Ramakrishnan).</li>
+<li>Infected macrophages egress from the primary granuloma → seeding of secondary granulomas, which the zebrafish work frames as the granuloma promoting early dissemination.</li>
+<li>In the host, inadequate IFN-γ/IL-12/IL-23 signalling → failure to activate macrophages and control bacilli. IFN-γ-knockout mice show "disseminated tuberculosis" with widespread necrosis and very high bacterial loads (Cooper et al.; Flynn et al., <em>J Exp Med</em> 1993;178:2243–47 and 2249–54, <a href="https://rupress.org/jem/article/178/6/2249/25121/An-essential-role-for-interferon-gamma-in">rupress</a>).</li>
+<li>Bacilli enter the bloodstream (lymphohematogenous spread) → simultaneous seeding of many organs (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3544391">PMC3544391</a>).</li>
+<li>Innumerable small granulomas form across lung, liver, spleen, bone marrow, meninges and other organs → organ dysfunction.</li>
+<li>In severe cases, a systemic inflammatory response → ARDS, septic shock, HLH or adrenal insufficiency (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9937678/">PMC9937678</a>, <a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8787627/">PMC8787627</a>).</li>
+</ol>
+<p><strong>Checklist coverage.</strong>
+- <em>Molecular pathways / immune involvement:</em> the IL-12/IL-23–IFN-γ–STAT1 axis is central (<a href="http://purl.obolibrary.org/obo/GO_0032609" target="_blank" rel="noopener noreferrer">GO:0032609</a> interferon-gamma production; <a href="http://purl.obolibrary.org/obo/GO_0042832" target="_blank" rel="noopener noreferrer">GO:0042832</a> defense response to protozoan is not apt — use <a href="http://purl.obolibrary.org/obo/GO_0051607" target="_blank" rel="noopener noreferrer">GO:0051607</a> defense response to virus as a related example only). Relevant GO terms: <a href="http://purl.obolibrary.org/obo/GO_0006952" target="_blank" rel="noopener noreferrer">GO:0006952</a> defense response, <a href="http://purl.obolibrary.org/obo/GO_0002286" target="_blank" rel="noopener noreferrer">GO:0002286</a> T cell activation involved in immune response.
+- <em>Cellular processes:</em> granuloma formation (<a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" rel="noopener noreferrer">GO:0002432</a>), macrophage activation (<a href="http://purl.obolibrary.org/obo/GO_0042116" target="_blank" rel="noopener noreferrer">GO:0042116</a>), apoptosis of infected macrophages (<a href="http://purl.obolibrary.org/obo/GO_0006915" target="_blank" rel="noopener noreferrer">GO:0006915</a>).
+- <em>Protein dysfunction:</em> loss of TYK2 kinase activity; loss-of-function of IL12RB1/IFNGR1 receptors.
+- <em>Tissue damage:</em> caseating necrosis within granulomas; the IFN-γ-KO model showed excess necrosis.
+- <em>Molecular profiling (transcriptomics, proteomics, metabolomics, single-cell, spatial):</em> no miliary-TB-specific omics datasets were retrieved in this session; stated as not available here.</p>
+<p><strong>Cell types (CL):</strong> alveolar macrophage <a href="http://purl.obolibrary.org/obo/CL_0000583" target="_blank" rel="noopener noreferrer">CL:0000583</a>, macrophage <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" rel="noopener noreferrer">CL:0000235</a>, epithelioid cell, multinucleated giant cell (Langhans), CD4+ T cell <a href="http://purl.obolibrary.org/obo/CL_0000492" target="_blank" rel="noopener noreferrer">CL:0000492</a>.</p>
+<h2>7. Anatomical Structures Affected</h2>
+<ul>
+<li><strong>Primary organ:</strong> lung (<a href="http://purl.obolibrary.org/obo/UBERON_0002048" target="_blank" rel="noopener noreferrer">UBERON:0002048</a>), with diffuse bilateral miliary nodules.</li>
+<li><strong>Secondary/multi-organ:</strong> liver (<a href="http://purl.obolibrary.org/obo/UBERON_0002107" target="_blank" rel="noopener noreferrer">UBERON:0002107</a>), spleen (<a href="http://purl.obolibrary.org/obo/UBERON_0002106" target="_blank" rel="noopener noreferrer">UBERON:0002106</a>), bone marrow (<a href="http://purl.obolibrary.org/obo/UBERON_0002371" target="_blank" rel="noopener noreferrer">UBERON:0002371</a>), lymph nodes (<a href="http://purl.obolibrary.org/obo/UBERON_0000029" target="_blank" rel="noopener noreferrer">UBERON:0000029</a>), meninges/brain (<a href="http://purl.obolibrary.org/obo/UBERON_0002360" target="_blank" rel="noopener noreferrer">UBERON:0002360</a> / <a href="http://purl.obolibrary.org/obo/UBERON_0000955" target="_blank" rel="noopener noreferrer">UBERON:0000955</a>), kidney (<a href="http://purl.obolibrary.org/obo/UBERON_0002113" target="_blank" rel="noopener noreferrer">UBERON:0002113</a>), adrenal gland (<a href="http://purl.obolibrary.org/obo/UBERON_0002369" target="_blank" rel="noopener noreferrer">UBERON:0002369</a>), choroid of the eye (<a href="http://purl.obolibrary.org/obo/UBERON_0001776" target="_blank" rel="noopener noreferrer">UBERON:0001776</a>), intestine (<a href="http://purl.obolibrary.org/obo/UBERON_0000160" target="_blank" rel="noopener noreferrer">UBERON:0000160</a>). Multi-organ seeding is the defining feature (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3544391">PMC3544391</a>); bovine disease shows the same organ distribution (<a href="https://www.merckvetmanual.com/generalized-conditions/tuberculosis-and-other-mycobacterial-infections/overview-of-tuberculosis-and-other-mycobacterial-infections">Merck Vet Manual</a>).</li>
+<li><strong>Body systems:</strong> respiratory, reticuloendothelial/hematopoietic, central nervous, hepatobiliary, endocrine.</li>
+<li><strong>Tissue/cell level:</strong> granulomas in parenchyma; macrophages and T lymphocytes (CL terms above).</li>
+<li><strong>Subcellular (GO cellular component):</strong> phagosome <a href="http://purl.obolibrary.org/obo/GO_0005768" target="_blank" rel="noopener noreferrer">GO:0005768</a>/<a href="http://purl.obolibrary.org/obo/GO_0045335" target="_blank" rel="noopener noreferrer">GO:0045335</a> (where bacilli reside); the ESX-1 system damages the phagosomal membrane.</li>
+<li><strong>Localization:</strong> bilateral, diffuse, random distribution on HRCT (<a href="https://pubmed.ncbi.nlm.nih.gov/9530383/">PMID 9530383</a>).</li>
+</ul>
+<h2>8. Temporal Development</h2>
+<ul>
+<li><strong>Onset:</strong> any age; higher risk in infants/young children and older or immunosuppressed adults. Pattern is usually subacute (weeks), occasionally acute/fulminant.</li>
+<li><strong>Progression:</strong> untreated disease is progressive and fatal within about one year (<a href="https://pubmed.ncbi.nlm.nih.gov/22771605/">PMID 22771605</a>).</li>
+<li><strong>Course:</strong> continuous rather than relapsing-remitting. "Cryptic" miliary TB is an insidious form in older adults.</li>
+<li><strong>Critical window:</strong> early anti-TB therapy is life-saving; delay worsens outcome (<a href="https://pubmed.ncbi.nlm.nih.gov/28281441/">PMID 28281441</a>).</li>
+<li><strong>Remission:</strong> treatment-induced; no spontaneous remission.</li>
+</ul>
+<h2>9. Inheritance and Population</h2>
+<ul>
+<li><strong>Share of TB cases:</strong> about 1–2% of all TB and up to ~20% of extrapulmonary TB (<a href="https://www.statpearls.com/point-of-care/25159">StatPearls</a>). In a 2010 US analysis, miliary disease was 299/11,182 incident cases (~2.7%); extrapulmonary TB was ~22% of cases (<a href="https://typeset.io/pdf/epidemiology-of-extrapulmonary-tuberculosis-in-the-united-1bobmyoy4t.pdf">typeset US EPTB epidemiology</a>).</li>
+<li><strong>CDC 2024 site-of-disease split (all TB):</strong> ~71% pulmonary only, 17% extrapulmonary only, 12% both; commonest extrapulmonary sites lymphatic 28% and pleural 24% (<a href="https://www.cdc.gov/tb-surveillance-report-2024/data/site-of-disease.html">CDC 2024</a>).</li>
+<li><strong>Inheritance:</strong> not applicable (infectious). Host susceptibility is AR/AD for the MSMD genes and AR for TYK2 P1104A homozygosity (section 2).</li>
+<li><strong>Geography:</strong> burden tracks global TB — highest in South/Southeast Asia and sub-Saharan Africa; HIV co-infection raises the disseminated fraction.</li>
+<li><strong>Sex and age:</strong> no reliable miliary-specific sex ratio retrieved. Bimodal age risk (young children; older/immunosuppressed adults).</li>
+</ul>
+<h2>10. Diagnostics</h2>
+<ul>
+<li><strong>Imaging.</strong> HRCT is more sensitive than chest radiography and shows randomly distributed 1–5 mm nodules (<a href="https://pubmed.ncbi.nlm.nih.gov/9530383/">PMID 9530383</a>); the radiograph can be normal early. About 10% of cases may be missed on initial CT (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3473551">PMC3473551</a>).</li>
+<li><strong>Microbiology.</strong> In miliary TB, AFB smear sensitivity is ~20–40% and PCR ~60–80% (<a href="https://ncbi.nlm.nih.gov/books/NBK562300">StatPearls NBK562300</a>). Culture of sputum, blood, bone marrow, liver or other tissue remains important. (Specific Xpert MTB/RIF and bone-marrow/liver-biopsy yield figures were not retrieved in this session.)</li>
+<li><strong>Fundoscopy</strong> for choroid tubercles, described as pathognomonic (<a href="https://pubmed.ncbi.nlm.nih.gov/22771605/">PMID 22771605</a>).</li>
+<li><strong>Histopathology:</strong> caseating granulomas with AFB on tissue biopsy (SNOMED/LOINC terms applicable).</li>
+<li><strong>Supporting labs:</strong> leukocytosis, lymphopenia, raised ALT, pancytopenia (with bone-marrow involvement or HLH).</li>
+<li><strong>Genetic testing</strong> is relevant only for suspected host immunodeficiency (MSMD gene panels via GTR), not for routine diagnosis.</li>
+<li><strong>Differential diagnosis:</strong> disseminated fungal infection, sarcoidosis, metastatic malignancy, pneumoconiosis, hypersensitivity pneumonitis, other causes of miliary nodules.</li>
+</ul>
+<h2>11. Outcome / Prognosis</h2>
+<ul>
+<li><strong>Mortality.</strong> In the Japanese DPC cohort, 2,817 patients had 637 (22.6%) in-hospital deaths (<a href="https://pesquisa.bvsalud.org/portal/resource/e/mdl-38636244">PMID 38636244</a>). A UK cohort of 52 reported 1-year mortality of 2%, attributed to timely critical care, anti-TB therapy and possibly corticosteroids (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6850233">PMC6850233</a>).</li>
+<li><strong>Prognostic factors.</strong> In a West China cohort of 313 (2010–2022), independent predictors of adverse outcome were current smoking, leukocytosis, elevated ALT, and lymphopenia combined with bone-marrow TB or TB lymphadenitis (<a href="https://doaj.org/article/ba7d65b8e2e54ce1baaa9936dbe00ffc">Ann Med 2024</a>). Pediatric mortality is ~15–20% (<a href="https://doi.org/10.1186/s12887-023-04427-x">BMC Pediatr 2023</a>).</li>
+<li><strong>Complications:</strong> ARDS (~7–18%, high mortality), HLH, septic shock, adrenal insufficiency, drug-induced liver injury, coexisting TB meningitis.</li>
+<li><strong>Recovery:</strong> with timely treatment, most immunocompetent patients recover; without treatment, almost uniformly fatal within a year.</li>
+</ul>
+<h2>12. Treatment</h2>
+<ul>
+<li><strong>First-line anti-TB therapy (NCIT: Antitubercular Agent).</strong> Standard regimen: isoniazid (<a href="http://purl.obolibrary.org/obo/CHEBI_6030" target="_blank" rel="noopener noreferrer">CHEBI:6030</a>), rifampicin (<a href="http://purl.obolibrary.org/obo/CHEBI_28077" target="_blank" rel="noopener noreferrer">CHEBI:28077</a>), pyrazinamide (<a href="http://purl.obolibrary.org/obo/CHEBI_45285" target="_blank" rel="noopener noreferrer">CHEBI:45285</a>) and ethambutol (<a href="http://purl.obolibrary.org/obo/CHEBI_4877" target="_blank" rel="noopener noreferrer">CHEBI:4877</a>) for a 2-month intensive phase, then isoniazid + rifampicin continuation. Total duration ~6 months for drug-susceptible miliary TB, extended to ~9–12 months when TB meningitis coexists (<a href="https://academic.oup.com/cid/article/63/5/e61/2196792">Nahid et al., ATS/CDC/IDSA 2016, Clin Infect Dis 63(7):e147–95</a>; regimen table <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6850233/table/tbl0004">PMC6850233 tbl0004</a>). HIV patients not on ART may need an extended continuation phase.</li>
+<li><strong>Corticosteroids (NCIT: Corticosteroid).</strong> Adjunctive use is standard for coexisting TB meningitis/pericarditis and used for life-threatening disease (ARDS, adrenal insufficiency), but routine use in miliary TB without those indications is debated (<a href="https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9937678/">PMC9937678</a>).</li>
+<li><strong>Supportive/ICU care</strong> for ARDS, shock and organ failure. For MSMD-related disease, adjunctive IFN-γ and treating the underlying immune defect are relevant (<a href="https://pubmed.ncbi.nlm.nih.gov/40656276/">PMID 40656276</a>).</li>
+<li><strong>Monitoring:</strong> hepatotoxicity and drug–drug interactions, especially rifampicin with antiretrovirals (<a href="https://pubmed.ncbi.nlm.nih.gov/31723681/">PMID 31723681</a>).</li>
+<li>Randomized trial data specific to miliary TB regimen/duration are sparse (<a href="https://pubmed.ncbi.nlm.nih.gov/31723681/">PMID 31723681</a>).</li>
+</ul>
+<h2>13. Prevention</h2>
+<ul>
+<li><strong>Primary:</strong> infant BCG vaccination gives high protection against miliary and meningeal TB in young children (Mangtani 2014, <a href="https://researchonline.lshtm.ac.uk/1440348">PMID 24336911</a>); it is ineffective in adolescents/adults (<a href="https://jamanetwork.com/journals/jamapediatrics/fullarticle/2716800">JAMA Pediatr IPD meta-analysis</a>). General TB control (case finding, treating infectious cases) reduces transmission.</li>
+<li><strong>Secondary:</strong> screening and treating latent TB infection before immunosuppression. "Before prescribing [infliximab], physicians should screen patients for latent tuberculosis" (Keane 2001, <a href="https://searchworks.jioinstitute.edu.in/articles/cmedm__11596589">record</a>).</li>
+<li><strong>Tertiary:</strong> early treatment and monitoring to prevent ARDS, DILI and death.</li>
+<li><strong>Bovine/zoonotic:</strong> milk pasteurisation and cattle control programs reduce <em>M. bovis</em> spillover (<a href="https://www.cfsph.iastate.edu/Factsheets/pdfs/bovine_tuberculosis.pdf">CFSPH</a>).</li>
+</ul>
+<h2>14. Other Species / Natural Disease</h2>
+<ul>
+<li><strong>Cattle (NCBITaxon:9913):</strong> <em>M. bovis</em> causes bovine TB; "the acute generalized form, known as miliary tuberculosis, is often rapidly fatal", with lesions in lungs, lymph nodes, intestine and kidney (<a href="https://www.merckvetmanual.com/generalized-conditions/tuberculosis-and-other-mycobacterial-infections/overview-of-tuberculosis-and-other-mycobacterial-infections">Merck Vet Manual</a>; <a href="https://www.cfsph.iastate.edu/Factsheets/pdfs/bovine_tuberculosis.pdf">CFSPH</a>).</li>
+<li><strong>Zoonosis:</strong> <em>M. bovis</em>, <em>M. caprae</em>, <em>M. orygis</em>, <em>M. pinnipedii</em> and <em>M. microti</em> can infect humans (<a href="https://woah.org/?p=253">WOAH</a>).</li>
+<li><strong>Nonhuman primates:</strong> low-dose <em>M. tuberculosis</em> in cynomolgus macaques reproduces the human spectrum; TNF blockade before infection produced "fulminant and disseminated disease by 8 weeks" (<a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC201048">PMC201048</a>).</li>
+<li><strong>Comparative:</strong> disseminated disease across species consistently follows failure of macrophage/T-cell containment.</li>
+</ul>
+<h2>15. Model Organisms</h2>
+<ul>
+<li><strong>Mouse (NCBITaxon:10090).</strong> IFN-γ gene-disrupted mice develop disseminated TB with widespread necrosis and very high bacillary loads, establishing IFN-γ as essential for containment (Cooper, Flynn et al. 1993, <a href="https://rupress.org/jem/article/178/6/2249/25121/An-essential-role-for-interferon-gamma-in">rupress</a>). Resource: MGI.</li>
+<li><strong>Zebrafish (NCBITaxon:7955) / <em>M. marinum</em>.</strong> Intravital imaging showed ESX-1/RD1-driven macrophage recruitment, apoptosis and egress seeding secondary granulomas — a model of early dissemination (Davis &amp; Ramakrishnan; Volkman et al., <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC524251">PMC524251</a>). Resource: ZFIN.</li>
+<li><strong>Nonhuman primate</strong> models (section 14) best recapitulate human granuloma pathology and disseminated disease under TNF blockade.</li>
+<li><strong>Recapitulation / limitations:</strong> mouse and zebrafish capture dissemination mechanisms and host-factor dependence but differ from human caseating granuloma architecture; macaques recapitulate pathology best but are resource-intensive. <em>M. marinum</em> is a surrogate for <em>M. tuberculosis</em>.</li>
+</ul>
+<hr />
+<h3>Notes on gaps and reliability</h3>
+<ul>
+<li>Bash/PubMed E-utilities were blocked this session; PMIDs are given only where a retrieved page showed them. Several (Trunz/Fine/Dye 2006; Keane 2001 <a href="https://pubmed.ncbi.nlm.nih.gov/11596589/" target="_blank" rel="noopener noreferrer">PMID 11596589</a>; HGNC IDs) rest on secondary records and should be verified against PubMed/HGNC directly.</li>
+<li>ICD-11 code, miliary-TB-specific omics data, EQ-5D/SF-36 quality-of-life measures, and HIV-infant-specific phenotype frequencies were not located and are marked not available.</li>
+<li>"Disseminated TB" cohort estimates (e.g. Portugal) are broader than strictly miliary disease and are labelled as such.</li>
+</ul>
+<h2>Reference Validation</h2>
+<p>Checked with <code>linkml-reference-validator</code> 0.8.0.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>References checked</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Quoted claims checked</td>
+<td>4</td>
+</tr>
+<tr>
+<td>Quoted claims found in source</td>
+<td>1</td>
+</tr>
+<tr>
+<td>Quoted claims <strong>not</strong> found in source</td>
+<td>3</td>
+</tr>
+<tr>
+<td>References weighed for topical relevance</td>
+<td>24</td>
+</tr>
+<tr>
+<td>On topic</td>
+<td>16</td>
+</tr>
+<tr>
+<td>Off topic</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Quotes not found in the cited source</h3>
+<p>Searched the abstract, any retrieved full text, and the title. A quote drawn from a part of the paper that was not retrieved will appear here too, so check before treating one as invented:</p>
+<p>2 of these was searched against an abstract alone, with no full text retrieved - marked <em>abstract only</em> below. Where full text can be fetched, re-running with it will settle them; where the source publishes only a summary to PubMed, as GeneReviews chapters do, it will not, and the quote has to be checked by hand against the chapter itself.</p>
+<ul>
+<li><code>PMC:PMC3544391</code> <em>(abstract only)</em>: "massive lymphohematogenous spread of <em>M. tuberculosis</em>"</li>
+<li>closest text in source: "Miliary TB is a potentially fatal form of TB that results from massive lymphohematogenous dissemination of Mycobacterium tuberculosis bacilli"</li>
+<li><code>PMID:22771605</code>: "Untreated miliary TB [has] a fatal outcome within one year"</li>
+<li>closest text in source: "Although several prognostic markers have been described which predict mortality, yet untreated miliary TB has a fatal outcome within one year"</li>
+<li><code>PMC:PMC201048</code> <em>(abstract only)</em>: "fulminant and disseminated disease by 8 weeks"</li>
+<li>closest text in source: "Active-chronic infection, observed in 50 to 60% of monkeys, was characterized by clear signs of infection or disease on serial thoracic radiographs and in other tests and was typified by eventual progression to advanced disease"</li>
+</ul>
+<h2>Term Validation</h2>
+<p>Checked with <code>linkml-term-validator</code> 0.4.5, through the <code>ols:</code> adapter.</p>
+<details class="report-table"><summary>Table (click to expand)</summary><div class="report-table-scroll"><table>
+<thead>
+<tr>
+<th>Outcome</th>
+<th>Count</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Terms checked</td>
+<td>61</td>
+</tr>
+<tr>
+<td>Resolved</td>
+<td>24</td>
+</tr>
+<tr>
+<td>Unresolved (possible confabulation)</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Obsolete</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Unverifiable</td>
+<td>37</td>
+</tr>
+<tr>
+<td>Terms whose name was checked</td>
+<td>7</td>
+</tr>
+<tr>
+<td>Terms named correctly</td>
+<td>3</td>
+</tr>
+<tr>
+<td>Terms named as a <strong>different</strong> term</td>
+<td>2</td>
+</tr>
+<tr>
+<td>Terms whose name is worth a second look</td>
+<td>2</td>
+</tr>
+</tbody>
+</table></div></details>
+<h3>Terms the report names something else</h3>
+<p>These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:</p>
+<ul>
+<li><code>HP:0034287</code> (1 mention) - the report calls it "suggested term"; HP calls it <strong>Afibrinogenemia</strong></li>
+<li><code>UBERON:0002048</code> (1 mention) - the report calls it "Primary organ:<strong> lung"; UBERON calls it </strong>lung**</li>
+</ul>
+<h3>Terms whose name is worth a second look</h3>
+<p>The report's name for these is recognisably related to the term's own name without being one of them. A loose paraphrase reads the same way as a citation of the wrong sibling term - and so does a <em>related</em> synonym, which the ontology records precisely because it names something adjacent rather than the same thing - so these are listed rather than judged:</p>
+<ul>
+<li><code>NCBITaxon:1765</code> (2 mentions) - the report calls it "M. bovis"; NCBITaxon calls it <strong>Mycobacterium tuberculosis variant bovis</strong>, and lists "Mycobacterium bovis" among its other names</li>
+<li><code>CL:0000583</code> (3 mentions) - the report calls it "Inhaled bacilli infect alveolar macrophages"; CL calls it <strong>alveolar macrophage</strong></li>
+</ul>
+<h3>Terms the ontology service could not be reached for</h3>
+<p>34 term(s) could not be checked because the ontology service was unreachable (a timeout, 5xx, 408 or 429), not because anything looks wrong with them. Re-run when the service is reachable -- the label cache resumes, so only the unresolved terms are retried:</p>
+<ul>
+<li><code>NCBITaxon:1773</code> (2 mentions)</li>
+<li><code>HP:0001945</code> (1 mention)</li>
+<li><code>HP:0012735</code> (1 mention)</li>
+<li><code>HP:0002094</code> (1 mention)</li>
+<li><code>HP:0012378</code> (1 mention)</li>
+<li><code>HP:0002240</code> (1 mention)</li>
+<li><code>HP:0001744</code> (1 mention)</li>
+<li><code>HP:0001250</code> (1 mention)</li>
+<li><code>HP:0033104</code> (1 mention)</li>
+<li><code>HP:0002878</code> (1 mention)</li>
+<li><code>HP:0001974</code> (1 mention)</li>
+<li><code>HP:0031964</code> (1 mention)</li>
+<li><code>HP:0000846</code> (1 mention)</li>
+<li><code>CHEBI:24261</code> (1 mention)</li>
+<li><code>GO:0032609</code> (1 mention)</li>
+<li><code>GO:0002286</code> (1 mention)</li>
+<li><code>GO:0002432</code> (1 mention)</li>
+<li><code>GO:0042116</code> (1 mention)</li>
+<li><code>UBERON:0000029</code> (1 mention)</li>
+<li><code>UBERON:0002360</code> (1 mention)</li>
+<li><code>UBERON:0000955</code> (1 mention)</li>
+<li><code>UBERON:0002113</code> (1 mention)</li>
+<li><code>UBERON:0002369</code> (1 mention)</li>
+<li><code>UBERON:0001776</code> (1 mention)</li>
+<li><code>UBERON:0000160</code> (1 mention)</li>
+<li><code>GO:0005768</code> (1 mention)</li>
+<li><code>GO:0045335</code> (1 mention)</li>
+<li><code>CHEBI:6030</code> (1 mention)</li>
+<li><code>CHEBI:28077</code> (1 mention)</li>
+<li><code>CHEBI:45285</code> (1 mention)</li>
+<li><code>CHEBI:4877</code> (1 mention)</li>
+<li><code>NCBITaxon:9913</code> (1 mention)</li>
+<li><code>NCBITaxon:10090</code> (1 mention)</li>
+<li><code>NCBITaxon:7955</code> (1 mention)</li>
+</ul>
+<h3>Terms whose obsolescence could not be checked</h3>
+<p>8 term(s) resolved, so they exist, but the ontology service was unreachable for the deprecation check -- treat their obsolescence as unknown rather than clean, and re-run to confirm:</p>
+<ul>
+<li><code>MONDO:0000368</code> (1 mention)</li>
+<li><code>HP:0002039</code> (1 mention)</li>
+<li><code>HP:0000554</code> (1 mention)</li>
+<li><code>GO:0006952</code> (1 mention)</li>
+<li><code>GO:0006915</code> (1 mention)</li>
+<li><code>CL:0000492</code> (1 mention)</li>
+<li><code>UBERON:0002107</code> (1 mention)</li>
+<li><code>UBERON:0002106</code> (1 mention)</li>
+</ul>
+            </article>
+
+            <nav class="report-nav" aria-label="Report navigation">
+                
+                <a href="Migraine_with_Aura-asta.html">← Migraine with aura (Asta)</a>
+                
+                
+                <a href="Miller-Dieker_Lissencephaly_Syndrome-falcon.html">Miller-Dieker Lissencephaly Syndrome (Falcon) →</a>
+                
+            </nav>
+        </main>
+
+        <aside class="sidebar">
+            <div class="side-card">
+                <h2>This Disorder</h2>
+                <ul class="side-links">
+                    
+                    <li><a href="../disorders/Miliary_Tuberculosis.html#literature-summaries">Disorder page ↗</a></li>
+                    
+                    <li><a href="index.html">All research reports</a></li>
+                    
+                    <li><a href="https://github.com/monarch-initiative/dismech/blob/main/research/Miliary_Tuberculosis-deep-research-claude_code.md" target="_blank" rel="noopener noreferrer">View report source ↗</a></li>
+                    
+                </ul>
+            </div>
+
+            
+            <div class="side-card">
+                <h2>Other Reports</h2>
+                <ul class="side-links">
+                    
+                    <li>
+                        
+                        <span class="provider-pill provider-claude-code" aria-current="page">Claude Code</span>
+                        <span class="current"> (this report)</span>
+                        
+                    </li>
+                    
+                </ul>
+            </div>
+            
+        </aside>
+    </div>
+</body>
+</html>
