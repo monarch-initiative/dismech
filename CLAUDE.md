@@ -3753,7 +3753,7 @@ treatment's `effect_modifiers`, not only in its `description`:
   effect_modifiers:
   - effect_modifier_type: SEX            # AGE, SEX, REPRODUCTIVE_STATUS, BASELINE_SEVERITY,
                                          # GENOTYPE, BIOMARKER, COMORBIDITY, ANCESTRY,
-                                         # CONCOMITANT_TREATMENT, OTHER
+                                         # CONCOMITANT_TREATMENT, DISEASE_SUBTYPE, OTHER
     stratum: women over 65               # the subgroup, in the source's terms
     comparator_stratum: men over 65
     modified_outcome: knee extensor maximal torque
@@ -3870,6 +3870,55 @@ just subtype-usage-audit kb/disorders/MyDisease.yaml --format list
 
 See `docs/reports/subtype-field-usage-audit-2026-09-04.md` for the baseline
 census and the two recurring failure shapes.
+
+### Data-Driven Subtypes (`derivation`)
+
+A `has_subtypes` row may be a **data-driven cluster** (the Ahlqvist type 2
+diabetes subgroups, a latent-class asthma phenotype) rather than a discrete
+kind, but only if it says so. `Subtype.derivation` (`SubtypeDerivation`)
+records how the subtype's boundary with its siblings was drawn:
+
+```yaml
+has_subtypes:
+- name: SIRD
+  display_name: Severe insulin-resistant diabetes (SIRD)
+  classification: data_driven_cluster
+  derivation:
+    boundary_type: STATISTICAL_PARTITION   # CATEGORICAL, CRITERIA_BASED, THRESHOLD
+    partition_method: k-means and hierarchical clustering
+    partition_features: [age at diagnosis, BMI, HbA1c, HOMA2 insulin resistance]
+    derivation_population: ANDIS, 8,980 newly diagnosed adults, Sweden
+    cluster_data:                          # entity refs; absent when none exists
+    - datasets#<accession>
+    evidence: [...]                        # derivation, replication, failures to replicate
+```
+
+- **`STATISTICAL_PARTITION` must carry `partition_method`, `partition_features`
+  and `evidence`**, and `CATEGORICAL` must carry neither method nor features
+  (`check_subtype_derivations`). A cluster exists only relative to its feature
+  set; an uncited one cannot be reproduced.
+- **`cluster_data` points at data, not papers.** It takes
+  `datasets#<accession>` or `computational_models#<name>` references in this
+  entry, gated by `just check-entity-refs`. A publication describing the
+  clusters goes in `evidence`. When no accessible record exists, which is the
+  usual case for cohort data, leave the slot absent and say so in `notes`.
+- **Record stability and replication as evidence, not as a grade.** Quote the
+  replication as `SUPPORT` and a failure to replicate or a low stability index
+  as `REFUTE`. The class records how the boundary was drawn, never a verdict on
+  the clustering.
+- Data-driven clusters usually have no MONDO term, so `subtype_term` is
+  omitted and `check_subtypes_have_disease_term` warns. The warning is
+  expected; do not bind the parent's term.
+
+**A treatment effect that differs by subtype names the subtype.** On a
+`TreatmentEffectModifier`, set `effect_modifier_type: DISEASE_SUBTYPE` and
+`stratum_subtype` (and `comparator_subtype` where the comparator is one
+subtype) to the `has_subtypes[].name`. Both are foreign keys checked by
+`check_subtype_foreign_keys`, and `DISEASE_SUBTYPE` without `stratum_subtype`
+fails. Keep the source's wording in `stratum`. Worked example:
+`Type_2_Diabetes_Mellitus` (SIDD, SIRD, MOD and MARD as subtypes; the ADOPT
+thiazolidinedione benefit in SIRD and sulfonylurea benefit in MARD as effect
+modifiers).
 
 ### Reference Ranges and Interpretation Bands
 
