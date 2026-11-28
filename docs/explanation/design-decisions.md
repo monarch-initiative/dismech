@@ -2693,14 +2693,27 @@ correction. The registry supports validation, JSON queries and a reviewable
 Markdown export; KGCL execution and automatic ticket filing are not implemented.
 See the [registry guide](../../ontology_changes/README.md).
 
-Coordinated mapping moves are recorded in `ontology_changes/change_sets/`,
-referencing the atomic removal and creation IDs. Membership is stored once;
+Coordinated mapping changes are recorded in `ontology_changes/change_sets/`,
+with a `changes` list referencing all atomic edit IDs. Membership is stored once;
 reverse links are derived. Each change-set YAML materializes the complete
-`before` and `after` mapping assertions, with IDs and labels, so a GitHub reader
+`before` and `after` lists of mapping assertions, with IDs and labels, so a GitHub reader
 can understand the move in one file. The atomic proposals remain authoritative:
 a deterministic refresh command populates the view and validation rejects any
-disagreement, including labels. Status and evidence are not duplicated.
-A `MAPPING_MOVE` changes only the subject, preserving the target, source representation and
-qualifier. The two atomic lifecycles remain authoritative, so partial upstream
-application is visible instead of being hidden by an aggregate status. These
-sets group edits for review; they do not promise transactional execution.
+disagreement, including labels. A curated justification explains the complete move.
+The review view also materializes analysis/source links, affected paths and the
+individual member statuses with verification dates. These are checked projections
+of the atomic records, not independently maintained status or evidence. The
+justification is preserved by refresh and reviewed against the linked sources;
+it is not inferred from solver scores. Legacy context-free sets remain valid,
+while a populated context must be complete and match the members.
+`MAPPING_RESTRUCTURE` supports N-to-M mapping deltas using removals, creations
+and predicate changes. `MAPPING_MOVE` is a constrained special case with one
+removal and one creation, preserving target and qualifier while changing subject.
+The views include withdrawn/introduced assertions rather than unchanged context;
+empty sides are valid. Duplicate assertions and remove/add cancellation are
+rejected because the set describes one transition, not a sequential edit script.
+All atomic lifecycles remain authoritative, so partial upstream application is
+visible without an aggregate status. These sets group edits for review; they do
+not promise transactional execution or imply concept merges/splits. Those require
+explicit operations that this registry does not yet model. The legacy pairwise
+shape remains readable; refresh migrates it to the general representation.

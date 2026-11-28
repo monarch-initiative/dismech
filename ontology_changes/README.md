@@ -14,7 +14,7 @@ Foundation snapshot captured on 2026-09-21 UTC.
 
 ## Boomer pilot follow-through
 
-The registry now covers four investigated cases, with six atomic mapping edits.
+The registry now covers five investigated cases, with seven atomic mapping edits.
 The Gorlin and PRAAS moves each have a structured change set linking two edits:
 remove the misplaced family xref and add it to the existing subtype. These are backfilled, applied requests,
 not newly discovered corrections. MONDO and DO source snapshots and the three
@@ -27,6 +27,7 @@ upstream request states were checked on 2026-11-25 (America/Los_Angeles;
 | PRAAS | [Move the PRAAS1 DO mapping from family to subtype](change_sets/mondo-praas1-mapping-move.yaml) | Both edits ACCEPTED; [MONDO #10629](https://github.com/monarch-initiative/mondo/pull/10629) merged and verified in current source | No DisMech mapping migration needed |
 | TPMT deficiency | [Qualify the poor-thiopurine-metabolism family as broader](mondo-0012503-thiopurine-family-broad-match.yaml) | ACKNOWLEDGED; [MONDO #10630](https://github.com/monarch-initiative/mondo/pull/10630) approved but still open, source unchanged | No DisMech mapping migration needed |
 | Anterior segment dysgenesis (FOXE3 investigation) | [Qualify the structural-anomaly ICD-11 category as broader](mondo-0019503-icd11-anterior-segment-broad-match.yaml) | NOT_FILED | No DisMech mapping migration needed |
+| Hemochromatosis / SLC40A1 | [Qualify ferroportin disease as related](mondo-0011631-ferroportin-related-match.yaml) | NOT_FILED; source checked 2026-11-27 | No direct Orphanet binding to migrate; MONDO concept/synonym scope remains under review |
 
 TPMT's review asks whether the DO family matches MONDO's thiopurine metabolic
 disease and whether obsolete NUDT15 deficiency should be reinstated. The current
@@ -74,9 +75,9 @@ runs it on every PR, including proposals-only edits.
 
 `list-change-sets` returns the grouping records as JSON. `list --change-set`
 returns their atomic members and can be combined with the existing filters.
-`export` accepts a change-set ID or either member ID: all three produce the
-same complete move, with a before/after table and the full evidence and status
-of both edits. Standalone proposals still export individually. Any invalid
+`export` accepts a change-set ID or any member ID: all produce the
+same complete change set, with a before/after table and the full evidence and status
+of all member edits. Standalone proposals still export individually. Any invalid
 proposal or change set prevents listing/exporting an apparently valid subset.
 
 Use `affected_records` to link diseases, groupings and analyses to a proposal.
@@ -86,7 +87,7 @@ the place for links to filed tickets. `history/` records curation sessions;
 this registry records the edits being requested. No change to the Disease
 schema is required.
 
-## Mapping moves as change sets
+## Mapping changes as change sets
 
 A removal has no `new_value`: its result is absence of that mapping. A creation
 has no `old_value`: the mapping did not previously exist at that subject. To
@@ -96,10 +97,18 @@ represent their combined intent, add a record under `change_sets/`:
 id: mondo-gorlin-ptch1-mapping-move
 title: Move the PTCH1-specific DO mapping from the Gorlin family to basal cell nevus syndrome 1
 change_set_type: MAPPING_MOVE
+justification: 'Gorlin syndrome is a family containing PTCH1-related and SUFU-related subtypes. DOID:0070365
+  is explicitly PTCH1-related and shares OMIM:109400 with MONDO:0958174; DOID:2512 covers the broader
+  family. The saved Boomer analysis has two equally weighted best solutions that exchange the family-to-subtype
+  and family-to-family DO mappings. That tie identifies a scope conflict; source definitions, rather than
+  the solver score, justify retaining the family mapping to DOID:2512 and moving DOID:0070365 to MONDO:0958174.
+  The pinned before/current MONDO stanzas document the move applied in MONDO PR #10628. This record covers
+  the mapping assertions, not all annotation cleanup: the checked family stanza still cites the subtype
+  DOID on an inheritance edge, which requires separate review.'
 ontology: MONDO
 mapping_representation: MONDO_XREF_QUALIFIER
 before:
-  subject:
+- subject:
     id: MONDO:0007187
     label: nevoid basal cell carcinoma syndrome
   predicate: MONDO:equivalentTo
@@ -107,47 +116,156 @@ before:
     id: DOID:0070365
     label: nevoid basal cell carcinoma syndrome 1
 after:
-  subject:
+- subject:
     id: MONDO:0958174
     label: basal cell nevus syndrome 1
   predicate: MONDO:equivalentTo
   object:
     id: DOID:0070365
     label: nevoid basal cell carcinoma syndrome 1
-removal: mondo-0007187-gorlin-remove-subtype-doid
-creation: mondo-0958174-gorlin-add-subtype-doid
+analysis_links:
+- https://github.com/monarch-initiative/dismech/blob/main/analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+source_links:
+- https://raw.githubusercontent.com/monarch-initiative/mondo/f1526eeae184f43741ca73ae0050d16f0061fd37/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/monarch-initiative/mondo/d3bdb9d318f3913c41068660eb30682a7b193e28/src/ontology/mondo-edit.obo
+- https://raw.githubusercontent.com/DiseaseOntology/HumanDiseaseOntology/fe7ad5dc278f47c9c133964892ca7ad80e5321b1/src/ontology/doid.obo
+- https://github.com/monarch-initiative/mondo/pull/10628
+upstream_requests:
+- https://github.com/monarch-initiative/mondo/pull/10628
+member_statuses:
+- proposal_id: mondo-0007187-gorlin-remove-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0007187-gorlin-remove-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+- proposal_id: mondo-0958174-gorlin-add-subtype-doid
+  record_url: https://github.com/monarch-initiative/dismech/blob/main/ontology_changes/mondo-0958174-gorlin-add-subtype-doid.yaml
+  origin: SELF_PROPOSED
+  confidence: HIGH
+  request_status: ACCEPTED
+  adoption_status: NOT_APPLICABLE
+  adoption_notes: The DisMech entry already uses the family MONDO term; no asserted DisMech mapping to
+    the misplaced DO subtype needs migration. The saved before/after Boomer experiment is a controlled
+    source intervention, not a live source refresh. Preserve historical inputs and use corrected upstream
+    mappings for future captures.
+  ontology_state_verified: '2026-11-25'
+affected_records:
+- kb/disorders/Gorlin_Syndrome.yaml
+- analyses/boomer/remaining-low-confidence/Gorlin_Syndrome-alternatives.md
+- kb/disorders/PTCH1-related_Nevoid_Basal_Cell_Carcinoma_Syndrome.yaml
+see_also:
+- https://github.com/monarch-initiative/dismech/pull/18681
+changes:
+- mondo-0007187-gorlin-remove-subtype-doid
+- mondo-0958174-gorlin-add-subtype-doid
 ```
 
-`removal` and `creation` reference stable proposal IDs, not filenames or URLs.
-The validator requires the corresponding edit types, a shared owning ontology,
-the same mapping target ID, the same representation and predicate/qualifier,
-and two distinct subject IDs. Each atomic edit can belong to at most one set.
-All IDs share a namespace, must match their filenames, and must resolve to the
-expected record kind. Missing or invalid members and duplicate YAML keys fail
+`changes` references stable proposal IDs, not filenames or URLs. Every member
+must be a `REMOVE_MAPPING`, `MAPPING_CREATION` or `MAPPING_PREDICATE_CHANGE`
+proposal. All members share the owning ontology and source representation.
+IDs must be unique, resolve to valid records, and belong to at most one set.
+Mixed legacy/new membership, missing members and duplicate YAML keys fail
 validation. Existing registries without change sets remain valid.
 
-The `before` and `after` blocks show the complete mapping being removed and
-added: subject, source-native predicate/qualifier and target, including labels.
+`MAPPING_RESTRUCTURE` supports N-to-M changes. `MAPPING_MOVE` is its constrained
+one-for-one case: exactly one removal and one creation, with the same target ID
+and predicate/qualifier and two distinct subject IDs. Do not split a coordinated
+collapse into artificial pairwise moves.
+
+`before` and `after` are lists of withdrawn and introduced assertions. They are
+the **changed portion** of the mapping graph, not full ontology snapshots. A
+predicate change contributes its old assertion to `before` and its new assertion
+to `after`; a pure addition has `before: []`, and a pure removal has `after: []`.
+Unchanged mappings remain in the ontology and can be explained in the rationale.
 For `MONDO_XREF_QUALIFIER`, `predicate` is the xref qualifier, not an OWL edge.
-These blocks describe the edit, not its current application status.
+These views describe the edit, not its current application status.
+
+The list is a simultaneous delta, not an ordered program. Duplicate assertions
+on either side, or an assertion both removed and added, are rejected even if the
+proposal IDs differ. Resolve a sequential repair into its net edit before recording
+it as one set. Assertion order follows member order for display; it does not pair
+items by position or imply an execution sequence.
+
+### Example: two mappings collapse into one
+
+This is a synthetic example of the representation, not a proposed ontology edit:
+
+```yaml
+change_set_type: MAPPING_RESTRUCTURE
+changes:
+- example-remove-a
+- example-remove-b
+- example-add-c
+before:
+- subject: {id: 'EXAMPLE:A', label: Synthetic A}
+  predicate: skos:exactMatch
+  object: {id: 'EXAMPLE:X', label: Synthetic X}
+- subject: {id: 'EXAMPLE:B', label: Synthetic B}
+  predicate: skos:exactMatch
+  object: {id: 'EXAMPLE:X', label: Synthetic X}
+after:
+- subject: {id: 'EXAMPLE:C', label: Synthetic C}
+  predicate: skos:exactMatch
+  object: {id: 'EXAMPLE:X', label: Synthetic X}
+```
+
+The three IDs resolve to two removal proposals and one creation proposal, each
+with its own evidence and lifecycle. Exporting the set or **any** of those IDs
+shows all three operations and their statuses. This does not merge or delete
+concepts A or B. A concept merge or split requires an explicit operation of its
+own; the registry does not yet model those operations, and a mapping change
+must not be presented as implementing them.
+
+### Migration and review context
+
+Legacy `MAPPING_MOVE` records with `removal`/`creation` and single-object views
+remain readable and validate via the compatibility `LegacyMappingMove` class.
+`refresh-change-set-views` migrates them to `changes` and assertion lists,
+preserving their IDs, curated rationale and atomic records. Normal reads do
+not rewrite files. New curation uses `OntologyChangeSet`; do not mix the layouts.
 
 The owning `ontology`, `mapping_representation`, `before` and `after` are
 materialized from the atomic records so the YAML is readable on GitHub without
 opening another file. Validation requires exact agreement, including labels.
-After creating the two atomic records and the change-set ID/title/references,
+After creating the atomic records and the change-set ID/title/references
+and writing its `justification`,
 run `just ontology-changes refresh-change-set-views` to populate these fields.
 Run it again after updating a member. The command validates the full registry
 with regenerated views before writing any files; it cannot repair an invalid
-move or missing evidence. It changes only change-set files, never the atomic
+change set or missing evidence. It changes only change-set files, never the atomic
 records. Normal validation and export reject missing or stale views.
+
+For new curation, write a self-contained `justification` for the complete change set:
+explain the source scope, what the analysis revealed, why the selected correction
+follows, which mappings remain, and any unresolved annotations. Do not substitute
+a solver score for a scope argument. This prose is curated and preserved by refresh;
+validation checks that it is nonblank, not that its interpretation is correct.
+
+Refresh also derives `analysis_links`, `source_links`, `upstream_requests`,
+`member_statuses`, `affected_records` and `see_also`. It removes duplicate links
+and links back to the change set itself. Analysis links browse the saved reports
+on GitHub; their paths and SHA-256 checksums remain in the authoritative atomic
+records. Source URLs preserve the versions captured by those records. Member statuses
+include verification dates and adoption notes; they describe the checked state,
+not a fresh upstream lookup. Every supplied context field must agree with its
+members. Partial context or stale statuses/links block validation and export.
+Legacy sets with no review context remain valid; adding `justification` and running
+refresh migrates them. Refresh never invents the justification or drops other
+schema-valid fields.
 
 Membership is stored once, in the change set; reverse membership is derived.
 The atomic records keep their IDs, source snapshots, request status and adoption
 status. A set has **no aggregate status**:
-if the removal is accepted but the creation is only filed, the export displays
-that partial application explicitly. The set is a coordinated review unit,
-not an assertion that upstream applies both edits transactionally. A target or
-qualifier change is not this subject-only move; do not force it into this type.
+if one edit is accepted while others are pending, the export displays that
+partial application explicitly. The set is a coordinated review unit, not an
+assertion that upstream applies every edit transactionally. A target or qualifier
+change belongs in `MAPPING_RESTRUCTURE`, not the subject-only `MAPPING_MOVE` type.
 
 ## Curating a record
 
@@ -177,8 +295,9 @@ qualifier change is not this subject-only move; do not force it into this type.
    `MAPPING_CREATION` adds a previously absent mapping; verify its absence in
    the before snapshot and omit `old_value`. If a mapping already exists but
    has the wrong qualifier, use `MAPPING_PREDICATE_CHANGE`. A move to a different
-   subject is recorded as removal and creation records referenced by a
-   `MAPPING_MOVE` change set. Link each atomic record's `see_also` to its change
+   subject is recorded as removal and creation records referenced in the
+   `changes` list of a `MAPPING_MOVE` set. Larger mapping restructurings use
+   `MAPPING_RESTRUCTURE`, referencing every atomic edit in the same list. Link each atomic record's `see_also` to its change
    set for readers browsing the YAML; the set's ID references are authoritative.
    For an applied edit, preserve before and current snapshots rather than
    pretending that the historical `old_value` still holds in the current source.
