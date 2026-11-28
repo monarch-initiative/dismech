@@ -14,7 +14,7 @@ Foundation snapshot captured on 2026-09-21 UTC.
 
 ## Boomer pilot follow-through
 
-The registry now covers four investigated cases, with six atomic mapping edits.
+The registry now covers five investigated cases, with seven atomic mapping edits.
 The Gorlin and PRAAS moves each have a structured change set linking two edits:
 remove the misplaced family xref and add it to the existing subtype. These are backfilled, applied requests,
 not newly discovered corrections. MONDO and DO source snapshots and the three
@@ -27,6 +27,7 @@ upstream request states were checked on 2026-11-25 (America/Los_Angeles;
 | PRAAS | [Move the PRAAS1 DO mapping from family to subtype](change_sets/mondo-praas1-mapping-move.yaml) | Both edits ACCEPTED; [MONDO #10629](https://github.com/monarch-initiative/mondo/pull/10629) merged and verified in current source | No DisMech mapping migration needed |
 | TPMT deficiency | [Qualify the poor-thiopurine-metabolism family as broader](mondo-0012503-thiopurine-family-broad-match.yaml) | ACKNOWLEDGED; [MONDO #10630](https://github.com/monarch-initiative/mondo/pull/10630) approved but still open, source unchanged | No DisMech mapping migration needed |
 | Anterior segment dysgenesis (FOXE3 investigation) | [Qualify the structural-anomaly ICD-11 category as broader](mondo-0019503-icd11-anterior-segment-broad-match.yaml) | NOT_FILED | No DisMech mapping migration needed |
+| Hemochromatosis / SLC40A1 | [Qualify ferroportin disease as related](mondo-0011631-ferroportin-related-match.yaml) | NOT_FILED; source checked 2026-11-27 | No direct Orphanet binding to migrate; MONDO concept/synonym scope remains under review |
 
 TPMT's review asks whether the DO family matches MONDO's thiopurine metabolic
 disease and whether obsolete NUDT15 deficiency should be reinstated. The current
