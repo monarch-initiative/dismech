@@ -24261,7 +24261,8 @@ window.searchData = [
     "frequencies": [],
     "genes": [
       "SERPINA1",
-      "Somatic SERPINA1 escape variants in liver"
+      "Somatic SERPINA1 escape variants in liver",
+      "PNPLA3 I148M"
     ],
     "treatments": [
       "Alpha-1 Antitrypsin Augmentation Therapy",
@@ -24287,7 +24288,7 @@ window.searchData = [
     "page_url": "../pages/disorders/Alpha-1_Antitrypsin_Deficiency.html",
     "num_phenotypes": 9,
     "num_pathophysiology": 10,
-    "num_genes": 2,
+    "num_genes": 3,
     "num_treatments": 10,
     "causal_graph_edges": "37",
     "causal_graph_longest_path": "5"
@@ -242315,6 +242316,137 @@ window.searchData = [
     "causal_graph_longest_path": "12"
   },
   {
+    "name": "Intestinal Tuberculosis",
+    "disease_id": "MONDO:0001678",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Extrapulmonary tuberculosis",
+      "Gastrointestinal tuberculosis"
+    ],
+    "creation_date": "2026-11-27T23:10:11Z",
+    "updated_date": null,
+    "subtypes": [
+      "Ulcerative",
+      "Hypertrophic",
+      "Ulcerohypertrophic"
+    ],
+    "description": "Intestinal tuberculosis is tuberculosis of the bowel wall, caused by Mycobacterium tuberculosis and, uncommonly, by Mycobacterium bovis acquired from unpasteurized dairy products. Bacilli reach the intestine in swallowed sputum, in the blood from a pulmonary focus, or by spread from adjacent tuberculous lymph nodes or viscera, and invade the lymphoid tissue of the mucosa. The ileocecal region, rich in Peyer's patches, is the commonest site. Caseating granulomatous inflammation of the submucosa produces transverse or circumferential ulcers (ulcerative form), an inflammatory pseudotumour with wall thickening (hypertrophic form), or both (ulcerohypertrophic form), with necrotic mesenteric lymphadenitis. The illness is insidious, with chronic abdominal pain, weight loss, fever, night sweats, anaemia, diarrhoea or altered bowel habit, and sometimes a right lower quadrant mass. Complications are strictures with obstruction, perforation, fistula and bleeding. The disease closely mimics Crohn disease clinically, endoscopically and histologically; misdiagnosis and treatment with corticosteroids or anti-TNF agents can lead to dissemination and death. Diagnosis rests on ileocolonoscopy with biopsies for histology, acid-fast staining, culture and nucleic acid amplification (PCR, Xpert MTB/RIF), supported by CT and evidence of pulmonary tuberculosis; because every test is insensitive, an empirical trial of antituberculous therapy with clinical and endoscopic follow-up is often needed. Six months of standard antituberculous chemotherapy is as effective as longer courses in randomized trials, and surgery is reserved for perforation, refractory obstruction or massive bleeding.",
+    "pathophysiology": [
+      "Primary Pulmonary Tuberculous Infection",
+      "Enteric Inoculation by Ingested Bacilli",
+      "Hematogenous Seeding of the Intestinal Wall",
+      "Contiguous Extension from Tuberculous Lymph Nodes or Viscera",
+      "M Cell and Peyer's Patch Invasion in the Ileocecal Region",
+      "Caseating Granulomatous Inflammation of the Intestinal Wall",
+      "Transverse Mucosal Ulceration",
+      "Granulomatous Mesenteric Arteritis and Thrombosis",
+      "Inflammatory Pseudotumour and Wall Thickening",
+      "Fibrotic Stricture Formation During Ulcer Healing",
+      "Caseating Mesenteric Lymphadenitis"
+    ],
+    "cell_types": [
+      "M cell",
+      "macrophage",
+      "epithelioid macrophage",
+      "multinucleated giant cell",
+      "lymphocyte",
+      "fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000682",
+      "CL:0000235",
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000542",
+      "CL:0000057"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "inflammatory response",
+      "tissue remodeling"
+    ],
+    "phenotypes": [
+      "Abdominal pain",
+      "Weight loss",
+      "Fever",
+      "Night sweats",
+      "Fatigue",
+      "Diarrhea",
+      "Constipation",
+      "Anemia",
+      "Elevated erythrocyte sedimentation rate",
+      "Ileocecal ulcer",
+      "Abdominal mass",
+      "Lymphadenopathy",
+      "Intestinal obstruction",
+      "Ileal stricture",
+      "Intestinal perforation",
+      "Gastrointestinal hemorrhage",
+      "Intestinal fistula"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Constitutional",
+      "Hematologic",
+      "Laboratory",
+      "Lymphatic"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Immune",
+      "Metabolism"
+    ],
+    "phenotype_ids": [
+      "HP:0002027",
+      "HP:0001824",
+      "HP:0001945",
+      "HP:0030166",
+      "HP:0012378",
+      "HP:0002014",
+      "HP:0002019",
+      "HP:0001903",
+      "HP:0003565",
+      "HP:0033433",
+      "HP:0031500",
+      "HP:0002716",
+      "HP:0005214",
+      "HP:0020002",
+      "HP:0031368",
+      "HP:0002239",
+      "HP:0100819"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous Chemotherapy",
+      "Surgery for Complications",
+      "Strictureplasty or Endoscopic Balloon Dilation for Short Strictures"
+    ],
+    "environmental": [
+      "HIV infection and immunosuppression",
+      "Corticosteroid or anti-TNF therapy for presumed inflammatory bowel disease",
+      "Consumption of unpasteurized dairy products"
+    ],
+    "biochemical": [],
+    "source_file": "Intestinal_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Intestinal_Tuberculosis.html",
+    "num_phenotypes": 17,
+    "num_pathophysiology": 11,
+    "num_genes": 0,
+    "num_treatments": 3,
+    "causal_graph_edges": "39",
+    "causal_graph_longest_path": "10"
+  },
+  {
     "name": "Intracranial berry aneurysm",
     "disease_id": "MONDO:0016483",
     "category": "Complex",
@@ -394140,6 +394272,7 @@ window.searchData = [
       "Corneal Arcus (Arcus Lipoides)",
       "Progressive Loss of Photopic Visual Acuity",
       "Glare and Photophobia",
+      "Decreased Corneal Sensation",
       "Hypercholesterolemia"
     ],
     "phenotype_categories": [
@@ -394157,6 +394290,7 @@ window.searchData = [
       "HP:0001084",
       "HP:0007663",
       "HP:0000613",
+      "HP:0012155",
       "HP:0003124"
     ],
     "frequencies": [
@@ -394178,12 +394312,12 @@ window.searchData = [
     ],
     "source_file": "Schnyder_Corneal_Dystrophy.yaml",
     "page_url": "../pages/disorders/Schnyder_Corneal_Dystrophy.html",
-    "num_phenotypes": 6,
+    "num_phenotypes": 7,
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Schuurs-Hoeijmakers Syndrome",
@@ -409237,7 +409371,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "4"
   },
   {
@@ -410180,6 +410314,129 @@ window.searchData = [
     "num_treatments": 3,
     "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Spinal Tuberculosis",
+    "disease_id": "MONDO:0043836",
+    "category": "Infectious Disease",
+    "parents": [
+      "Tuberculosis",
+      "Skeletal tuberculosis"
+    ],
+    "creation_date": "2026-11-27T23:10:02Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spinal tuberculosis (Pott disease, tuberculous spondylitis) is tuberculous infection of the vertebral column. It accounts for about half of skeletal tuberculosis and is its most destructive form. It is always secondary: bacilli reach the spine through the bloodstream from a pulmonary or other primary focus and lodge in the subchondral bone of the anterior vertebral body on either side of a disc (the paradiscal pattern). A slow, paucibacillary caseating granulomatous osteomyelitis follows. The infection spreads beneath the anterior longitudinal ligament to neighbouring levels, often leaving the disc relatively preserved early on, and forms large \"cold\" paravertebral, psoas and epidural abscesses with little inflammation. Progressive destruction collapses the vertebral bodies and wedges them anteriorly, giving kyphosis and the angular gibbus. The thoracic and lumbar spine are affected most; cervical and craniovertebral junction disease is less common and presents with neck pain, restricted movement, retropharyngeal abscess with dysphagia, and atlantoaxial instability. In children kyphosis can keep progressing with growth after cure. Back pain is the dominant symptom; fever and constitutional symptoms are less common than in pyogenic spondylodiscitis, and diagnosis is typically delayed by months. Neurological deficit (Pott paraplegia) affects roughly half of patients. It arises either early, from compression by abscess, granulation tissue, sequestra or instability during active disease, or late, from stretching of the cord over a healed internal gibbus years or decades later. MRI is the imaging modality of choice and separates tuberculous from pyogenic infection on features such as thin-walled paraspinal abscesses and subligamentous spread over several levels. The diagnosis is confirmed by CT-guided biopsy with histology, mycobacterial culture and Xpert MTB/RIF. Antituberculous chemotherapy is the mainstay, given for 6 to 12 months or longer; paradoxical worsening early in treatment is recognised and should not be mistaken for failure. Surgery is reserved for neurological deficit, instability, severe deformity, large abscesses or failure of medical treatment.",
+    "pathophysiology": [
+      "Primary Mycobacterium tuberculosis Infection",
+      "Hematogenous Seeding of the Vertebral Body",
+      "Caseating Granulomatous Vertebral Osteomyelitis",
+      "Subligamentous Spread Beneath the Anterior Longitudinal Ligament",
+      "Cold Abscess Formation",
+      "Vertebral Body Destruction and Collapse",
+      "Progressive Kyphotic Deformity",
+      "Spinal Cord Compression in Active Disease",
+      "Late Cord Stretch over a Healed Internal Gibbus"
+    ],
+    "cell_types": [
+      "epithelioid macrophage",
+      "Langhans giant cell",
+      "macrophage",
+      "lymphocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0002150",
+      "CL:0000647",
+      "CL:0000235",
+      "CL:0000542"
+    ],
+    "biological_processes": [
+      "granuloma formation",
+      "chronic inflammatory response",
+      "inflammatory response"
+    ],
+    "phenotypes": [
+      "Back pain",
+      "Neurological deficit",
+      "Paraplegia",
+      "Fever",
+      "Weight loss",
+      "Night sweats",
+      "Kyphosis",
+      "Vertebral collapse",
+      "Spinal instability",
+      "Paravertebral cold abscess",
+      "Spinal epidural abscess",
+      "Psoas abscess",
+      "Neck pain",
+      "Limited neck range of motion",
+      "Atlantoaxial dislocation",
+      "Retropharyngeal abscess",
+      "Dysphagia",
+      "Elevated erythrocyte sedimentation rate"
+    ],
+    "phenotype_categories": [
+      "Musculoskeletal",
+      "Neurological",
+      "Constitutional",
+      "Digestive",
+      "Laboratory"
+    ],
+    "phenotype_hpo_categories": [
+      "Constitutional",
+      "Digestive",
+      "Growth",
+      "Head and Neck",
+      "Immune",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0003418",
+      "HP:0002196",
+      "HP:0010550",
+      "HP:0001945",
+      "HP:0001824",
+      "HP:0030166",
+      "HP:0002808",
+      "HP:0002953",
+      "HP:0005881",
+      "HP:6000660",
+      "HP:0033181",
+      "HP:0025615",
+      "HP:0030833",
+      "HP:0000466",
+      "HP:0003414",
+      "HP:6000288",
+      "HP:0002015",
+      "HP:0003565"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [],
+    "treatments": [
+      "Antituberculous chemotherapy",
+      "Second-line regimen for drug-resistant spinal tuberculosis",
+      "Surgical decompression, debridement and stabilisation",
+      "Corrective osteotomy for severe kyphosis",
+      "Drainage of a large cold abscess"
+    ],
+    "environmental": [
+      "HIV infection"
+    ],
+    "biochemical": [],
+    "source_file": "Spinal_Tuberculosis.yaml",
+    "page_url": "../pages/disorders/Spinal_Tuberculosis.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 9,
+    "num_genes": 0,
+    "num_treatments": 5,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Spinocerebellar Ataxia 27A",
@@ -435349,7 +435606,7 @@ window.searchData = [
     "creation_date": "2026-10-31T14:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Zinc deficiency of the exclusively breastfed infant caused by a genetic defect in the mother. Loss-of-function variants in SLC30A2, which encodes the vesicular zinc transporter ZnT2 of lactating mammary epithelial cells, reduce zinc import into the secretory vesicles that carry zinc into milk, so the mother produces milk with a markedly low zinc concentration while her own serum zinc is normal. One heterozygous variant is usually enough (autosomal dominant, by haploinsufficiency or, for some missense alleles, a dominant-negative effect through ZnT2 homodimers); compound heterozygous and homozygous mothers have also been reported. The infant, whose own genotype is irrelevant to the disease, develops the acrodermatitis enteropathica-like syndrome of zinc deficiency during exclusive breastfeeding: periorificial and acral dermatitis, alopecia, diarrhea, irritability and growth faltering, with low serum zinc and low alkaline phosphatase. Oral zinc given to the infant resolves it rapidly, maternal zinc supplementation does not raise milk zinc, and the deficiency does not recur after weaning, which separates it from acrodermatitis enteropathica. Many reported low-milk-zinc cases are preterm infants, whose zinc demand is high.",
+    "description": "Zinc deficiency of the exclusively breastfed infant caused by a genetic defect in the mother. Loss-of-function variants in SLC30A2, which encodes the vesicular zinc transporter ZnT2 of lactating mammary epithelial cells, reduce zinc import into the secretory vesicles that carry zinc into milk, so the mother produces milk with a markedly low zinc concentration while her own serum zinc is normal. One heterozygous variant is usually enough (autosomal dominant, by haploinsufficiency or, for some missense alleles, a dominant-negative effect through ZnT2 homodimers); compound heterozygous and homozygous mothers have also been reported. The infant, whose own genotype is irrelevant to the disease, develops the acrodermatitis enteropathica-like syndrome of zinc deficiency during exclusive breastfeeding: periorificial, diaper-area and acral dermatitis, alopecia, diarrhea, irritability and growth faltering, sometimes with lethargy, poor feeding and recurrent infections, and with low serum zinc and low alkaline phosphatase. Oral zinc given to the infant resolves it rapidly, maternal zinc supplementation does not raise milk zinc, and the deficiency does not recur after weaning, which separates it from acrodermatitis enteropathica. Many reported low-milk-zinc cases are preterm infants, whose zinc demand is high.",
     "pathophysiology": [
       "Maternal SLC30A2 Loss of Function",
       "Impaired Zinc Loading of Lactocyte Secretory Vesicles",
@@ -435378,6 +435635,16 @@ window.searchData = [
       "Growth Faltering",
       "Decreased Serum Zinc",
       "Decreased Serum Alkaline Phosphatase",
+      "Recurrent Infections",
+      "Lethargy",
+      "Poor Feeding",
+      "Abdominal Cramps",
+      "Hoarse Cry",
+      "Sparse Eyelashes",
+      "Paronychia",
+      "Cheilitis",
+      "Stomatitis",
+      "Decreased Serum IGF-1",
       "Low Breast Milk Zinc Concentration"
     ],
     "phenotype_categories": [
@@ -435386,15 +435653,22 @@ window.searchData = [
       "Behavioral",
       "Growth",
       "Laboratory",
+      "Immunological",
+      "Neurological",
+      "Respiratory",
       "Maternal"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Digestive",
+      "Endocrine",
       "Growth",
+      "Head and Neck",
       "Immune",
       "Integument",
       "Metabolism",
-      "Nervous System"
+      "Nervous System",
+      "Voice"
     ],
     "phenotype_ids": [
       "HP:0000964",
@@ -435405,6 +435679,16 @@ window.searchData = [
       "HP:0001531",
       "HP:0031831",
       "HP:0003282",
+      "HP:0002719",
+      "HP:0001254",
+      "HP:0011968",
+      "HP:0002027",
+      "HP:0001609",
+      "HP:0000653",
+      "HP:0001818",
+      "HP:0100825",
+      "HP:0010280",
+      "HP:0030353",
       "HP:6000700"
     ],
     "frequencies": [],
@@ -435423,11 +435707,11 @@ window.searchData = [
     ],
     "source_file": "Transient_Neonatal_Zinc_Deficiency.yaml",
     "page_url": "../pages/disorders/Transient_Neonatal_Zinc_Deficiency.html",
-    "num_phenotypes": 9,
+    "num_phenotypes": 19,
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "8"
   },
   {
@@ -460064,19 +460348,19 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 4222,
-  "total_subtypes": 5186,
-  "total_disorders_and_subtypes": 9408,
-  "total_unique_evidence_sources": 63420,
-  "total_unique_publications": 59243,
+  "total_disorder_pages": 4224,
+  "total_subtypes": 5189,
+  "total_disorders_and_subtypes": 9413,
+  "total_unique_evidence_sources": 63487,
+  "total_unique_publications": 59310,
   "total_unique_disease_categories": 60,
   "total_unique_phenotype_categories": 316,
-  "total_pathographs": 4220,
-  "total_unique_pathological_events": 27959,
+  "total_pathographs": 4222,
+  "total_unique_pathological_events": 27978,
   "total_modules": 242,
-  "total_research_reports": 4326,
+  "total_research_reports": 4329,
   "total_classifications": 21,
   "total_comorbidities": 58,
-  "total_groupings": 159
+  "total_groupings": 160
 };
 window.dispatchEvent(new Event('searchDataReady'));
